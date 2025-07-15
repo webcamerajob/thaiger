@@ -146,8 +146,11 @@ async def send_media_group(client, token: str, chat_id: str, images: list) -> bo
         data={"chat_id": chat_id, "media": json.dumps(media)},
         files=files
     )
-    if not resp.ok:
-        logging.error("❌ POST %s: %s", resp.url, await resp.text())
+    # httpx.Response и aiohttp.ClientResponse не имеют .ok
+    status = getattr(resp, "status_code", None) or getattr(resp, "status", None)
+    text   = await resp.text()
+    if status != 200:
+        logging.error("❌ POST %s → %s: %s", resp.url, status, text)
         return False
     return True
 
