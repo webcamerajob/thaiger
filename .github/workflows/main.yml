@@ -50,24 +50,24 @@ jobs:
             pip install -r requirements-parser.txt
           fi
 
-      - name: 🔐 Setup WireGuard & install jq
-        run: |
-          sudo apt-get update \
-            && sudo apt-get install -y wireguard-tools resolvconf curl jq
-          mkdir -p $HOME/wg
-          # Пишем конфиг напрямую, без base64‐decode
-          echo "$WG_CONFIG" > $HOME/wg/wg0.conf
-          chmod 600 $HOME/wg/wg0.conf
-          sudo wg-quick up $HOME/wg/wg0.conf
-          echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf
+#      - name: 🔐 Setup WireGuard & install jq
+#        run: |
+#          sudo apt-get update \
+#            && sudo apt-get install -y wireguard-tools resolvconf curl jq
+#          mkdir -p $HOME/wg
+#          # Пишем конфиг напрямую, без base64‐decode
+#          echo "$WG_CONFIG" > $HOME/wg/wg0.conf
+#          chmod 600 $HOME/wg/wg0.conf
+#          sudo wg-quick up $HOME/wg/wg0.conf
+#          echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf
  
       - name: 🧠 Run parser
         run: python3 main.py --lang ru
 
         
-      - name: 🛑 Teardown WireGuard
-        if: always()
-        run: sudo wg-quick down $HOME/wg/wg0.conf || true
+#      - name: 🛑 Teardown WireGuard
+#        if: always()
+#        run: sudo wg-quick down $HOME/wg/wg0.conf || true
 
       - name: Debug all files
         run: ls -R
