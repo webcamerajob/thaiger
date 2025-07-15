@@ -47,25 +47,35 @@ def extract_img_url(img_tag):
 
 def fetch_post_urls(base_url: str, slug: str, limit: int = 10) -> List[str]:
     """
-    Скрапит страницу /category/{slug}/, достаёт первые limit ссылок на статьи.
+    Скрапит страницу /{slug}/, достаёт первые limit ссылок на статьи.
+    Адаптировано под <h2 class="post-title"><a href=...>
     """
-    url = f"{base_url.rstrip('/')}/category/{slug}/"
+    url = f"{base_url.rstrip('/')}/{slug}/"
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             r = SCRAPER.get(url, timeout=SCRAPER_TIMEOUT)
             r.raise_for_status()
             soup = BeautifulSoup(r.text, "html.parser")
 
-            # Забираем и из h2.entry-title, и из h3.post-block__title
-            els = soup.select("h2.entry-title a") + soup.select("h3.post-block__title a")
+            # Основной селектор: <h2 class="post-title"><a href=...>
+            els = soup.select("h2.post-title a")
+            # Фолбэк на старые варианты
+            if not els:
+                els = soup.select("h2.entry-title a")      # WP-класс
+            if not els:
+                els = soup.select(".jeg_posts a[href^='https://']")  # ещё вариант
+
             links = [a["href"] for a in els if a.get("href")]
             return links[:limit]
         except (ReqTimeout, RequestException) as e:
             delay = BASE_DELAY * 2**(attempt-1)
-            logging.warning("Timeout fetching category page (%s/%s): %s; retry in %.1fs",
-                            attempt, MAX_RETRIES, e, delay)
+            logging.warning(
+                "Timeout fetching category page (%s/%s): %s; retry in %.1fs",
+                attempt, MAX_RETRIES, e, delay
+            )
             time.sleep(delay)
-    logging.error("Can’t fetch category page %s after %s tries", url, MAX_RETRIES)
+
+    logging.error("Не удалось получить %s после %s попыток", url, MAX_RETRIES)
     return []
 
 def fetch_posts(base_url: str, urls: List[str]) -> List[Dict[str, Any]]:
