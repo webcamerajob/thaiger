@@ -61,16 +61,20 @@ def extract_img_url(img_tag):
     return None
 
 def fetch_category_id(base_url: str, slug: str) -> int:
-    """Аналогично исходной версии"""
-    endpoint = f"{base_url}/wp-json/wp/v2/categories?slug={slug}"
+    """
+    Для thethaiger.com: достаёт все категории через ml-api,
+    ищет по slug и возвращает cat_id.
+    """
+    endpoint = f"{base_url}/ml-api/v2/categories"
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             r = SCRAPER.get(endpoint, timeout=SCRAPER_TIMEOUT)
             r.raise_for_status()
-            data = r.json()
-            if not data:
-                raise RuntimeError(f"Category '{slug}' not found")
-            return data[0]["id"]
+            cats = r.json().get("categories", [])
+            for cat in cats:
+                if cat.get("slug") == slug:
+                    return int(cat["cat_id"])
+            raise RuntimeError(f"[ml-api] Category '{slug}' not found")
         except (ReqTimeout, RequestException) as e:
             delay = BASE_DELAY * 2 ** (attempt - 1)
             logging.warning(
@@ -84,13 +88,15 @@ def fetch_category_id(base_url: str, slug: str) -> int:
     raise RuntimeError("Failed fetching category id")
 
 def fetch_posts(base_url: str, cat_id: int, per_page: int = 10) -> List[Dict[str, Any]]:
-    """Аналогично исходной версии"""
-    endpoint = f"{base_url}/wp-json/wp/v2/posts?categories={cat_id}&per_page={per_page}&_embed"
+    """
+    Для thethaiger.com: отдаёт список постов из ml-api/v2/posts/lists.
+    """
+    endpoint = f"{base_url}/ml-api/v2/posts/lists?limit={per_page}&cat_id={cat_id}"
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             r = SCRAPER.get(endpoint, timeout=SCRAPER_TIMEOUT)
             r.raise_for_status()
-            return r.json()
+            return r.json().get("posts", [])
         except (ReqTimeout, RequestException) as e:
             delay = BASE_DELAY * 2 ** (attempt - 1)
             logging.warning(
