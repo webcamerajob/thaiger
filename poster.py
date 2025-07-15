@@ -128,33 +128,28 @@ async def _post_with_retry(
     return False
 
 
-async def send_media_group(
-    client: httpx.AsyncClient,
-    token: str,
-    chat_id: str,
-    images: List[Path]
-) -> bool:
-    """
-    Отправляет альбом фотографий без подписи.
-    Все изображения проходят через apply_watermark.
-    """
-    url   = f"https://api.telegram.org/bot{token}/sendMediaGroup"
-    media = []
-    files = {}
+    # Оставляем только первые 10 картинок
+    images = images[:10]
+    if not images:
+        logging.warning("Нет изображений для отправки")
+        return True
 
+    files: Dict[str, Tuple[str, Any, str]] = {}
+    media: List[Dict[str, Any]] = []
     for idx, img in enumerate(images):
-        key = f"file{idx}"
+        key = f"photo{idx}"
         files[key] = (img.name, apply_watermark(img), "image/png")
-        media.append({
-            "type": "photo",
-            "media": f"attach://{key}"
-        })
+        media.append({"type": "photo", "media": f"attach://{key}"})
 
-    data = {
-        "chat_id": chat_id,
-        "media": json.dumps(media, ensure_ascii=False)
-    }
-    return await _post_with_retry(client, "POST", url, data, files)
+    resp = await client.post(
+        f"https://api.telegram.org/bot{token}/sendMediaGroup",
+        data={"chat_id": chat_id, "media": json.dumps(media)},
+        files=files
+    )
+    if not resp.ok:
+        logging.error("❌ POST %s: %s", resp.url, await resp.text())
+        return False
+    return True
 
 
 async def send_message(
