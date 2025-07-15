@@ -348,8 +348,8 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, base_url: str) -> Op
 def main():
     parser = argparse.ArgumentParser(description="Parser with translation")
     parser.add_argument("--base-url", type=str,
-                        default="https://thethaiger.com",
-                        help="Site base URL (default: thethaiger.com)")
+                        default="https://www.thethaiger.com",
+                        help="Site base URL (default: www.thethaiger.com)")
     parser.add_argument("--slug", type=str,
                         default="news",
                         help="Category slug (default: news)")
