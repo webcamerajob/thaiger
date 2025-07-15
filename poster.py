@@ -127,7 +127,7 @@ async def _post_with_retry(
     logging.error("☠️ Failed %s after %s attempts", url, MAX_RETRIES)
     return False
 
-
+async def send_media_group(client, token: str, chat_id: str, images: list) -> bool:
     # Оставляем только первые 10 картинок
     images = images[:10]
     if not images:
