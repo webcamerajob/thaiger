@@ -146,9 +146,10 @@ async def send_media_group(client, token: str, chat_id: str, images: list) -> bo
         data={"chat_id": chat_id, "media": json.dumps(media)},
         files=files
     )
-    # httpx.Response и aiohttp.ClientResponse не имеют .ok
+    # Получаем статус и тело ответа. В httpx .text — это атрибут, не метод.
     status = getattr(resp, "status_code", None) or getattr(resp, "status", None)
-    text   = await resp.text()
+    # Убираем await и скобки, т.к. resp.text — строка
+    text   = resp.text
     if status != 200:
         logging.error("❌ POST %s → %s: %s", resp.url, status, text)
         return False
