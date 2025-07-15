@@ -16,8 +16,8 @@ on:
 
   
 env:
-  POST_DELAY: 600
-  BATCH_LIMIT: 50
+  POST_DELAY: 10
+  BATCH_LIMIT: 5
 
 jobs:
 
