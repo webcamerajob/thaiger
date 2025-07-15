@@ -1,0 +1,4 @@
+Pillow
+python-telegram-bot
+deep-translator
+httpx
