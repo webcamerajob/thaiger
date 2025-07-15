@@ -340,17 +340,19 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, base_url: str) -> Op
     return meta
 
 def main():
-    """CHANGED: Полностью переработанная логика обработки"""
     parser = argparse.ArgumentParser(description="Parser with translation")
     parser.add_argument("--base-url", type=str,
-                       default="https://www.khmertimeskh.com",
-                       help="WP site base URL")
-    parser.add_argument("--slug", type=str, default="national",
-                       help="Category slug")
-    parser.add_argument("-n", "--limit", type=int, default=None,
-                       help="Max posts to parse")
-    parser.add_argument("-l", "--lang", type=str, default="",
-                       help="Translate to language code")
+                        default="https://thethaiger.com",
+                        help="Site base URL (default: thethaiger.com)")
+    parser.add_argument("--slug", type=str,
+                        default="news",
+                        help="Category slug (default: news)")
+    parser.add_argument("-n", "--limit", type=int,
+                        default=None,
+                        help="Max posts to parse")
+    parser.add_argument("-l", "--lang", type=str,
+                        default="ru",
+                        help="Translate to language code (default: ru)")
     args = parser.parse_args()
 
     try:
