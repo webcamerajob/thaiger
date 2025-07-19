@@ -419,9 +419,9 @@ def save_posted_ids(all_ids_to_save: Set[int], state_file: Path) -> None:
 
 
 async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
-    """
-    Основная функция для запуска постера.
-    """
+
+    # Основная функция для запуска постера.
+    
     token       = os.getenv("TELEGRAM_TOKEN")
     chat_id     = os.getenv("TELEGRAM_CHANNEL")
     if not token or not chat_id:
