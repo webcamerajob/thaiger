@@ -322,7 +322,7 @@ def main():
     parser.add_argument("--base-url", type=str,
                         default="https://www.thethaiger.com",
                         help="WP site base URL")
-    parser.add_argument("--slug", type=str, default="news",
+    parser.add_argument("--slug", type=str, default="news/nationa",
                         help="Category slug")
     parser.add_argument("-n", "--limit", type=int, default=None,
                         help="Max posts to parse")
