@@ -29,6 +29,7 @@ DEFAULT_DELAY = 10.0 # Изменен с 5.0 на 10.0, как в вашей в�
 def escape_markdown(text: str) -> str:
     """
     Экранирует спецсимволы для MarkdownV2
+    """
     markdown_chars = r'\_*[]()~`>#+=-|{}.!'
     return re.sub(r'([%s])' % re.escape(markdown_chars), r'\\\1', text)
 
