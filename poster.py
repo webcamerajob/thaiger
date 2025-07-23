@@ -1,4 +1,3 @@
-
 import os
 import json
 import argparse
@@ -8,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 from io import BytesIO
-from collections import deque
+from collections import deque # deque по-прежнему полезен, но не так централизованно
 
 import httpx
 from httpx import HTTPStatusError, ReadTimeout, Timeout
@@ -20,7 +19,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 # --- Константа для ограничения количества записей в posted.json ---
-MAX_POSTED_RECORDS = 200 # Максимальное количество ID в posted.json
+# Если при 200 записях хотим оставить 100, то лимит хранения = 100.
+MAX_POSTED_RECORDS = 100
 # ──────────────────────────────────────────────────────────────────────────────
 HTTPX_TIMEOUT = Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
 MAX_RETRIES   = 3
@@ -32,7 +32,6 @@ def escape_html(text: str) -> str:
     Экранирует спецсимволы HTML (<, >, &, ") для корректного отображения в Telegram с parse_mode='HTML'.
     Этот метод должен применяться к СЫРОМУ тексту, который НЕ ЯВЛЯЕТСЯ HTML-тегами.
     """
-    # Заменяем символы на их HTML-сущности
     text = text.replace("&", "&amp;")
     text = text.replace("<", "&lt;")
     text = text.replace(">", "&gt;")
@@ -247,21 +246,20 @@ async def send_message(
 def validate_article(
     art: Dict[str, Any],
     article_dir: Path
-) -> Optional[Tuple[str, Path, List[Path], str]]: # Добавлен возврат оригинального заголовка
+) -> Optional[Tuple[str, Path, List[Path], str]]:
     """
     Проверяет структуру папки статьи и возвращает подготовленные данные.
     Возвращает HTML-отформатированный заголовок, путь к текстовому файлу,
     список путей к изображениям и ОРИГИНАЛЬНЫЙ неформатированный заголовок.
     """
     aid      = art.get("id")
-    title    = art.get("title", "").strip() # Оригинальный, неформатированный заголовок
+    title    = art.get("title", "").strip()
     txt_name = Path(art.get("text_file", "")).name if art.get("text_file") else None
 
     if not title:
         logging.error("Invalid title for article in %s (ID: %s). Skipping.", article_dir, aid)
         return None
 
-    # Поиск текстового файла
     text_path: Optional[Path] = None
     if txt_name:
         candidate_path = article_dir / txt_name
@@ -282,7 +280,6 @@ def validate_article(
         logging.error("No text file found for article in %s (ID: %s). Skipping.", article_dir, aid)
         return None
 
-    # Сбор картинок
     valid_imgs: List[Path] = []
     for name in art.get("images", []):
         p = article_dir / Path(name).name
@@ -299,89 +296,75 @@ def validate_article(
                 if p.suffix.lower() in (".jpg", ".jpeg", ".png")
             ]
 
-    # Подготовка заголовка в HTML-формате (жирный текст)
     html_title = f"<b>{escape_html(title)}</b>"
     
-    return html_title, text_path, valid_imgs, title # Возвращаем оригинальный заголовок
+    return html_title, text_path, valid_imgs, title
 
 
 def load_posted_ids(state_file: Path) -> Set[int]:
     """
-    Читает state-файл и возвращает set опубликованных ID.
+    Читает state-файл, загружает все ID, обрезает их до MAX_POSTED_RECORDS
+    (сохраняя самые новые), и возвращает set из этих ID.
     """
+    ids_from_file: List[int] = []
     if not state_file.is_file():
         logging.info("State file %s not found. Returning empty set.", state_file)
         return set()
 
-    text = state_file.read_text(encoding="utf-8").strip()
-    if not text:
-        logging.warning("State file %s is empty. Returning empty set.", state_file)
-        return set()
-
     try:
-        data = json.loads(text)
+        data = json.loads(state_file.read_text(encoding="utf-8").strip())
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and "id" in item:
+                    try:
+                        ids_from_file.append(int(item["id"]))
+                    except (ValueError, TypeError):
+                        logging.warning("Invalid ID format in state file: %s. Skipping.", item)
+                elif isinstance(item, (int, str)) and str(item).isdigit():
+                    ids_from_file.append(int(item))
+                else:
+                    logging.warning("Unexpected item type in state file: %s. Skipping.", item)
+        else:
+            logging.warning("State file %s content is not a list. Returning empty set.", state_file)
     except json.JSONDecodeError:
         logging.warning("State file %s is not valid JSON. Returning empty set.", state_file)
-        return set()
+    except Exception as e:
+        logging.error(f"Error reading existing state file {state_file}: {e}. Returning empty set.")
 
-    if not isinstance(data, list):
-        logging.warning("State file %s content is not a list. Returning empty set.", state_file)
-        return set()
+    # Обрезаем список до MAX_POSTED_RECORDS, сохраняя самые новые (с конца списка)
+    # Если список меньше, чем MAX_POSTED_RECORDS, он останется как есть.
+    if len(ids_from_file) > MAX_POSTED_RECORDS:
+        ids_from_file = ids_from_file[-MAX_POSTED_RECORDS:]
+        logging.info("State file %s trimmed to %d records during load.", state_file.name, MAX_POSTED_RECORDS)
 
-    ids: Set[int] = set()
-    for item in data:
-        if isinstance(item, dict) and "id" in item:
-            try:
-                ids.add(int(item["id"]))
-            except (ValueError, TypeError):
-                logging.warning("Invalid ID format in state file: %s. Skipping.", item)
-                pass
-        elif isinstance(item, (int, str)) and str(item).isdigit():
-            ids.add(int(item))
-        else:
-            logging.warning("Unexpected item type in state file: %s. Skipping.", item)
-    return ids
+    return set(ids_from_file)
 
 
 def save_posted_ids(all_ids_to_save: Set[int], state_file: Path) -> None:
     """
     Сохраняет список опубликованных ID статей в файл состояния.
-    Сохраняет максимум MAX_POSTED_RECORDS, добавляя новые в начало и вытесняя старые в конце.
+    Объединяет старые и новые ID, затем обрезает до MAX_POSTED_RECORDS,
+    сохраняя самые новые ID.
     """
     state_file.parent.mkdir(parents=True, exist_ok=True)
 
-    current_ids_list: deque = deque()
-    if state_file.exists():
-        try:
-            with state_file.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    for item in data:
-                        if isinstance(item, dict) and "id" in item:
-                            current_ids_list.append(item["id"])
-                        elif isinstance(item, int):
-                            current_ids_list.append(item)
-                else:
-                    logging.warning(f"State file {state_file} has unexpected format. Starting with fresh records.")
-        except json.JSONDecodeError:
-            logging.warning(f"State file {state_file} is corrupted. Starting with fresh records.")
-        except Exception as e:
-            logging.error(f"Error reading existing state file {state_file}: {e}. Starting with fresh records.")
-
-    current_ids_set = set(current_ids_list)
-
-    temp_ids_deque = deque(maxlen=MAX_POSTED_RECORDS)
-
-    for aid in sorted(list(all_ids_to_save - current_ids_set), reverse=True):
-        temp_ids_deque.appendleft(aid)
-
-    for aid in current_ids_list:
-        if aid in all_ids_to_save:
-            if aid not in temp_ids_deque:
-                temp_ids_deque.append(aid)
+    # Используем deque для эффективного управления фиксированным размером.
+    # Добавляем элементы в обратном порядке (от самых новых к старым),
+    # чтобы при выгрузке в список они были в прямом порядке.
+    temp_deque = deque(maxlen=MAX_POSTED_RECORDS)
+    
+    # Сначала добавим все ID из all_ids_to_save в deque
+    # Важно: Чтобы сохранить "новейшие", если all_ids_to_save большой,
+    # нужно добавить их в deque в порядке от самых старых до самых новых.
+    # Если all_ids_to_save - это Set, порядок не гарантирован.
+    # Сортируем для обеспечения правильного порядка при обрезке.
+    sorted_ids = sorted(list(all_ids_to_save))
+    for aid in sorted_ids:
+        temp_deque.append(aid)
 
     try:
-        final_list_to_save = list(temp_ids_deque)
+        # Преобразуем deque в список для записи.
+        final_list_to_save = list(temp_deque)
         with state_file.open("w", encoding="utf-8") as f:
             json.dump(final_list_to_save, f, ensure_ascii=False, indent=2)
         logging.info(f"Saved {len(final_list_to_save)} IDs to state file {state_file} (max {MAX_POSTED_RECORDS}).")
@@ -407,9 +390,10 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
         logging.error("Директория %s не существует. Выход.", parsed_root)
         return
 
-    # 1) Загрузка уже опубликованных ID
+    # 1) Загрузка уже опубликованных ID.
+    # posted_ids_old теперь является set'ом, который уже обрезан до MAX_POSTED_RECORDS.
     posted_ids_old = load_posted_ids(state_file)
-    logging.info("Загружено %d ранее опубликованных ID из %s.", len(posted_ids_old), state_file.name)
+    logging.info("Загружено %d ранее опубликованных ID из %s (актуальных после обрезки).", len(posted_ids_old), state_file.name)
 
     # 2) Сбор папок со статьями и их валидация
     articles_to_post: List[Dict[str, Any]] = []
@@ -418,17 +402,17 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
         if d.is_dir() and meta_file.is_file():
             try:
                 art_meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                # Важно: здесь posted_ids_old уже содержит только "актуальные" ID
                 if art_meta.get("id") is not None and art_meta["id"] not in posted_ids_old:
                     validated_data = validate_article(art_meta, d)
                     if validated_data:
-                        # Разбираем возвращаемые данные, включая оригинальный заголовок
                         html_title, text_path, image_paths, original_plain_title = validated_data
                         validated_data_dict = {
                             "id": art_meta["id"],
                             "html_title": html_title,
                             "text_path": text_path,
                             "image_paths": image_paths,
-                            "original_plain_title": original_plain_title # Сохраняем оригинальный заголовок
+                            "original_plain_title": original_plain_title
                         }
                         articles_to_post.append(validated_data_dict)
                     else:
@@ -452,7 +436,7 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
 
     client    = httpx.AsyncClient()
     sent      = 0
-    new_ids: Set[int] = set()
+    new_ids: Set[int] = set() # Множество для сбора ID, опубликованных в этом запуске
 
     # 3) Публикация каждой статьи
     for article in articles_to_post:
@@ -464,55 +448,41 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
         html_title  = article["html_title"]
         text_path   = article["text_path"]
         image_paths = article["image_paths"]
-        original_plain_title = article["original_plain_title"] # Получаем оригинальный заголовок
+        original_plain_title = article["original_plain_title"]
 
         logging.info("Попытка публикации ID=%s", aid)
         
         posted_successfully = False
         try:
-            # 3.1) Отправляем изображения (если есть) БЕЗ ПОДПИСИ
             if image_paths:
                 if not await send_media_group(client, token, chat_id, image_paths):
                     logging.warning("Не удалось отправить медиагруппу для ID=%s. Продолжаем отправлять только текст.", aid)
             
-            # 3.2) Подготовка полного текста: HTML-заголовок + очищенное и экранированное содержимое статьи
             raw_text = text_path.read_text(encoding="utf-8")
-
             cleaned_raw_text = raw_text
             if original_plain_title:
-                # Экранируем оригинальный заголовок для использования в регулярном выражении
                 escaped_plain_title_for_regex = re.escape(original_plain_title)
-                
-                # Регулярное выражение для поиска заголовка в начале текста,
-                # за которым следуют один или более пробелов/новых строк.
-                # re.DOTALL позволяет '.' соответствовать символам новой строки.
-                # re.IGNORECASE может быть полезен, если регистр заголовка в файле может отличаться.
                 pattern = re.compile(rf"^{escaped_plain_title_for_regex}\s*", re.DOTALL | re.IGNORECASE)
-
                 match = pattern.match(raw_text)
                 if match:
-                    cleaned_raw_text = raw_text[match.end():] # Обрезаем текст после заголовка и всех пробелов/newlines
+                    cleaned_raw_text = raw_text[match.end():]
                 else:
-                    # Если регулярное выражение не нашло точного совпадения,
-                    # это может означать, что заголовок не находится в самом начале,
-                    # или есть небольшие расхождения. Выводим предупреждение.
                     logging.warning(
                         f"Оригинальный заголовок '{original_plain_title}' не найден в начале текстового файла для ID={aid}. "
                         "Продолжаем без удаления. Убедитесь, что текстовый файл начинается с заголовка из meta.json."
                     )
-                    cleaned_raw_text = raw_text # Если не найдено, оставляем текст как есть
+                    cleaned_raw_text = raw_text
 
             escaped_raw_text = escape_html(cleaned_raw_text)
             full_html_content = f"{html_title}\n\n{escaped_raw_text}"
             
-            # 3.3) Делим на чанки
             chunks = chunk_text(full_html_content)
             num_chunks = len(chunks)
 
             all_chunks_sent = True
             for i, part in enumerate(chunks):
                 current_reply_markup = None
-                if i == num_chunks - 1: # Если это последний чанк, добавляем кнопки
+                if i == num_chunks - 1:
                     keyboard = {
                         "inline_keyboard": [
                             [
@@ -536,7 +506,7 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
             posted_successfully = False
 
         if posted_successfully:
-            new_ids.add(aid)
+            new_ids.add(aid) # Добавляем в сет новых ID, опубликованных в этом запуске
             sent += 1
             logging.info("✅ Опубликовано ID=%s", aid)
         
@@ -545,13 +515,13 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
     await client.aclose()
 
     # 4) Сохраняем обновлённый список ID
+    # all_ids_to_save теперь будет содержать старые актуальные ID + новые ID
     all_ids_to_save = posted_ids_old.union(new_ids)
     save_posted_ids(all_ids_to_save, state_file)
     logging.info("Состояние обновлено. Всего уникальных ID для сохранения: %d.", len(all_ids_to_save))
     logging.info("📢 Завершено: отправлено %d статей в этом запуске.", sent)
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(
         description="Poster: публикует статьи пакетами в Telegram"
     )
@@ -573,9 +543,7 @@ if __name__ == "__main__":
         default=None,
         help="максимальное число статей для отправки"
     )
-
     args = parser.parse_args()
-
     asyncio.run(main(
         parsed_dir=args.parsed_dir,
         state_path=args.state_file,
