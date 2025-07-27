@@ -21,6 +21,10 @@ logging.basicConfig(
 # --- Константа для ограничения количества записей в posted.json ---
 # Если при 200 записях хотим оставить 100, то лимит хранения = 100.
 MAX_POSTED_RECORDS = 100
+
+# --- Настройка размера вотермарки ---
+WATERMARK_SCALE = 0.4  # 45% от ширины изображения
+
 # ──────────────────────────────────────────────────────────────────────────────
 HTTPX_TIMEOUT = Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
 MAX_RETRIES   = 3
@@ -191,7 +195,7 @@ async def send_media_group(
             logging.warning("Telegram media group limit (10 images) reached. Skipping remaining images.")
             break
         try:
-            image_bytes = apply_watermark(img_path)
+            image_bytes = apply_watermark(img_path, scale=WATERMARK_SCALE)
             if not image_bytes:
                 logging.warning(f"Skipping image {img_path} due to empty bytes after watermark processing.")
                 continue
