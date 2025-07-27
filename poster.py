@@ -23,7 +23,7 @@ logging.basicConfig(
 MAX_POSTED_RECORDS = 100
 
 # --- Настройка размера вотермарки ---
-WATERMARK_SCALE = 0.4  # 45% от ширины изображения
+WATERMARK_SCALE = 0.35  # 35% от ширины изображения
 
 # ──────────────────────────────────────────────────────────────────────────────
 HTTPX_TIMEOUT = Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
