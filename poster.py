@@ -3,11 +3,9 @@ import json
 import argparse
 import asyncio
 import logging
-import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 from io import BytesIO
-from collections import deque
 import httpx
 from httpx import HTTPStatusError, ReadTimeout, Timeout
 from PIL import Image
@@ -33,51 +31,44 @@ def escape_html(text: str) -> str:
     """
     Экранирует спецсимволы HTML (<, >, &, ") для корректного отображения.
     """
-    text = text.replace("&", "&amp;")
-    text = text.replace("<", "&lt;")
-    text = text.replace(">", "&gt;")
-    text = text.replace('"', "&quot;")
-    return text
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 def chunk_text(text: str, size: int = 4096) -> List[str]:
     """
     Делит текст на чанки длиной <= size, сохраняя абзацы.
     """
-    norm = text.replace('\r\n', '\n')
-    paras = [p for p in norm.split('\n\n') if p.strip()]
-    chunks, curr = [], ""
-
-    def split_long(p: str) -> List[str]:
-        parts, sub = [], ""
-        for w in p.split(" "):
-            if len(sub) + len(w) + 1 > size:
-                parts.append(sub)
-                sub = w
-            else:
-                sub = (sub + " " + w).lstrip()
-        if sub:
-            parts.append(sub)
-        return parts
+    paras = [p for p in text.replace('\r\n', '\n').split('\n\n') if p.strip()]
+    chunks, current_chunk = [], ""
 
     for p in paras:
         if len(p) > size:
-            if curr:
-                chunks.append(curr)
-                curr = ""
-            chunks.extend(split_long(p))
+            if current_chunk:
+                chunks.append(current_chunk)
+            # Если абзац слишком длинный, грубо делим его по словам
+            parts = []
+            sub_part = ""
+            for word in p.split():
+                if len(sub_part) + len(word) + 1 > size:
+                    parts.append(sub_part)
+                    sub_part = word
+                else:
+                    sub_part = f"{sub_part} {word}".lstrip()
+            if sub_part:
+                parts.append(sub_part)
+            chunks.extend(parts)
+            current_chunk = ""
         else:
-            if not curr:
-                curr = p
-            elif len(curr) + 2 + len(p) <= size:
-                curr += "\n\n" + p
+            if not current_chunk:
+                current_chunk = p
+            elif len(current_chunk) + len(p) + 2 <= size:
+                current_chunk += f"\n\n{p}"
             else:
-                chunks.append(curr)
-                curr = p
-
-    if curr:
-        chunks.append(curr)
+                chunks.append(current_chunk)
+                current_chunk = p
+    
+    if current_chunk:
+        chunks.append(current_chunk)
     return chunks
-
 
 def apply_watermark(img_path: Path, scale: float = 0.35) -> bytes:
     """
@@ -96,38 +87,33 @@ def apply_watermark(img_path: Path, scale: float = 0.35) -> bytes:
 
         watermark_img = Image.open(watermark_path).convert("RGBA")
         
-        # Масштабирование водяного знака
         wm_width, wm_height = watermark_img.size
         new_wm_width = int(base_width * scale)
         new_wm_height = int(wm_height * (new_wm_width / wm_width))
         resample_filter = getattr(Image.Resampling, "LANCZOS", Image.LANCZOS)
         watermark_img = watermark_img.resize((new_wm_width, new_wm_height), resample=resample_filter)
         
-        # Создаём пустой слой РАЗМЕРОМ С ОСНОВНОЕ ИЗОБРАЖЕНИЕ
         overlay = Image.new("RGBA", base_img.size, (0, 0, 0, 0))
 
-        # Наносим вотермарку на этот слой в нужную позицию
         padding = int(base_width * 0.02)
         position = (base_width - new_wm_width - padding, padding)
-        overlay.paste(watermark_img, position, watermark_img) # Используем маску для прозрачности
+        overlay.paste(watermark_img, position, watermark_img)
 
-        # Совмещаем основное изображение со СЛОЕМ (overlay), а не с маленькой вотермаркой
         composite_img = Image.alpha_composite(base_img, overlay).convert("RGB")
 
-        # Сохраняем в байты как JPEG для экономии места
         img_byte_arr = BytesIO()
         composite_img.save(img_byte_arr, format='JPEG', quality=90)
         return img_byte_arr.getvalue()
         
     except Exception as e:
         logging.error(f"Не удалось наложить водяной знак на {img_path}: {e}")
-        # Возвращаем оригинал в случае ошибки
         try:
             with open(img_path, 'rb') as f:
                 return f.read()
         except Exception as e_orig:
             logging.error(f"Не удалось даже прочитать оригинальное изображение {img_path}: {e_orig}")
             return b""
+
 async def _post_with_retry(
     client: httpx.AsyncClient,
     method: str,
@@ -135,102 +121,50 @@ async def _post_with_retry(
     data: Dict[str, Any],
     files: Optional[Dict[str, Any]] = None
 ) -> bool:
-    """
-    Выполняет HTTP POST-запрос с повторными попытками.
-    """
+    """Выполняет HTTP POST-запрос с повторными попытками."""
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             resp = await client.request(method, url, data=data, files=files, timeout=HTTPX_TIMEOUT)
             resp.raise_for_status()
             return True
-        except ReadTimeout:
-            logging.warning("⏱ Timeout %s/%s for %s", attempt, MAX_RETRIES, url)
         except HTTPStatusError as e:
-            code = e.response.status_code
-            text = e.response.text
-            if code == 429:
-                info = e.response.json().get("parameters", {})
-                wait = info.get("retry_after", RETRY_DELAY)
-                logging.warning("🐢 Rate limited %s/%s: retry after %s seconds", attempt, MAX_RETRIES, wait)
-                await asyncio.sleep(wait)
-                continue
-            if 400 <= code < 500:
-                logging.error("❌ %s %s: %s", method, code, text)
+            if e.response.status_code == 429:
+                retry_after = int(e.response.json().get("parameters", {}).get("retry_after", RETRY_DELAY))
+                logging.warning(f"🐢 Rate limited. Retrying after {retry_after} seconds...")
+                await asyncio.sleep(retry_after)
+            elif 400 <= e.response.status_code < 500:
+                logging.error(f"❌ Client error {e.response.status_code}: {e.response.text}")
                 return False
-            logging.warning("⚠️ %s %s, retry %s/%s", method, code, attempt, MAX_RETRIES)
-        except httpx.RequestError as e:
-            logging.warning(f"Request error on attempt {attempt + 1}/{MAX_RETRIES}: {e}")
-        except Exception as e:
-            logging.error(f"An unexpected error occurred on attempt {attempt + 1}/{MAX_RETRIES}: {e}")
-
-        await asyncio.sleep(RETRY_DELAY)
-
-    logging.error("☠️ Failed %s after %s attempts", url, MAX_RETRIES)
+            else:
+                logging.warning(f"⚠️ Server error {e.response.status_code}. Retry {attempt}/{MAX_RETRIES}...")
+                await asyncio.sleep(RETRY_DELAY * attempt)
+        except (ReadTimeout, httpx.RequestError) as e:
+            logging.warning(f"⏱️ Network error: {e}. Retry {attempt}/{MAX_RETRIES}...")
+            await asyncio.sleep(RETRY_DELAY * attempt)
+    logging.error(f"☠️ Failed to send request to {url} after {MAX_RETRIES} attempts.")
     return False
 
-
-async def send_media_group(
-    client: httpx.AsyncClient,
-    token: str,
-    chat_id: str,
-    images: List[Path]
-) -> bool:
-    """
-    Отправляет альбом фотографий без подписи.
-    """
+async def send_media_group(client: httpx.AsyncClient, token: str, chat_id: str, images: List[Path]) -> bool:
+    """Отправляет альбом фотографий."""
     url = f"https://api.telegram.org/bot{token}/sendMediaGroup"
-    media = []
-    files = {}
-
-    if not images:
-        logging.warning("No images provided for media group.")
-        return False
-
-    for idx, img_path in enumerate(images[:10]): # Ограничение Telegram на 10 фото
-        try:
-            image_bytes = apply_watermark(img_path, scale=WATERMARK_SCALE)
-            if not image_bytes:
-                logging.warning(f"Skipping image {img_path} due to empty bytes.")
-                continue
-
-            key = f"file{idx}"
+    media, files = [], {}
+    for idx, img_path in enumerate(images[:10]):
+        image_bytes = apply_watermark(img_path)
+        if image_bytes:
+            key = f"photo{idx}"
             files[key] = (img_path.name, image_bytes, "image/jpeg")
             media.append({"type": "photo", "media": f"attach://{key}"})
-        except Exception as e:
-            logging.error(f"Error processing image {img_path} for media group: {e}")
-
-    if not media:
-        logging.warning("No valid images to send in media group.")
-        return False
-
-    data = {
-        "chat_id": chat_id,
-        "media": json.dumps(media, ensure_ascii=False)
-    }
+    if not media: return False
+    data = {"chat_id": chat_id, "media": json.dumps(media)}
     return await _post_with_retry(client, "POST", url, data, files)
 
-
-async def send_message(
-    client: httpx.AsyncClient,
-    token: str,
-    chat_id: str,
-    text: str,
-    reply_markup: Optional[Dict[str, Any]] = None
-) -> bool:
-    """
-    Отправляет текстовое сообщение с разбором HTML.
-    """
+async def send_message(client: httpx.AsyncClient, token: str, chat_id: str, text: str, **kwargs) -> bool:
+    """Отправляет текстовое сообщение."""
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    data = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True
-    }
-    if reply_markup:
-        data["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
+    data = {"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}
+    if kwargs.get("reply_markup"):
+        data["reply_markup"] = json.dumps(kwargs["reply_markup"])
     return await _post_with_retry(client, "POST", url, data)
-
 
 def validate_article(
     art: Dict[str, Any],
@@ -241,211 +175,147 @@ def validate_article(
     """
     aid = art.get("id")
     title = art.get("title", "").strip()
-    txt_name = Path(art.get("text_file", "")).name if art.get("text_file") else None
+    
+    # Строго требуем, чтобы путь к файлу был в meta.json
+    text_file_path_str = art.get("text_file")
 
-    if not all([aid, title, txt_name]):
-        logging.error("Invalid meta.json in %s (missing id, title, or text_file).", article_dir)
+    if not all([aid, title, text_file_path_str]):
+        logging.error(f"Invalid meta.json in {article_dir} (missing id, title, or text_file).")
         return None
 
-    text_path = article_dir / txt_name
+    # Проверяем, что этот файл реально существует
+    text_path = Path(text_file_path_str)
     if not text_path.is_file():
-        logging.error("Text file %s not found for article in %s. Skipping.", text_path, article_dir)
+        logging.error(f"Text file {text_path} specified in meta.json not found. Skipping.")
         return None
 
-    valid_imgs = sorted([
-        article_dir / "images" / Path(p).name for p in art.get("images", [])
-        if (article_dir / "images" / Path(p).name).is_file()
-    ])
+    # Ищем изображения только в подпапке /images для порядка
+    images_dir = article_dir / "images"
+    valid_imgs: List[Path] = []
+    if images_dir.is_dir():
+        valid_imgs = sorted([p for p in images_dir.iterdir() if p.suffix.lower() in {".jpg", ".jpeg", ".png"}])
 
     html_title = f"<b>{escape_html(title)}</b>"
+    
     return html_title, text_path, valid_imgs, title
 
-
 def load_posted_ids(state_file: Path) -> Set[str]:
-    """
-    Читает state-файл, возвращает set из ID в виде СТРОК.
-    Обрезает список до MAX_POSTED_RECORDS, сохраняя самые новые.
-    """
-    if not state_file.is_file():
-        return set()
-    
-    ids_from_file: List[str] = []
+    """Читает state-файл и возвращает set из ID в виде СТРОК."""
+    if not state_file.is_file(): return set()
     try:
         data = json.loads(state_file.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            # Преобразуем все элементы в строки для консистентности
-            ids_from_file = [str(item) for item in data if item is not None]
+        ids = {str(item) for item in data if item is not None} if isinstance(data, list) else set()
+        return set(list(ids)[-MAX_POSTED_RECORDS:])
     except (json.JSONDecodeError, Exception) as e:
-        logging.warning(f"Error reading or parsing state file {state_file}: {e}. Returning empty set.")
-
-    # Обрезаем список, сохраняя самые новые (в конце списка)
-    if len(ids_from_file) > MAX_POSTED_RECORDS:
-        start_index = len(ids_from_file) - MAX_POSTED_RECORDS
-        ids_from_file = ids_from_file[start_index:]
-        logging.info(f"State file trimmed to last {MAX_POSTED_RECORDS} records during load.")
-
-    return set(ids_from_file)
-
+        logging.warning(f"Ошибка чтения файла состояния {state_file}: {e}.")
+        return set()
 
 def save_posted_ids(all_ids_to_save: Set[str], state_file: Path) -> None:
-    """
-    Сохраняет отсортированный список ID (как строки) в файл состояния.
-    """
+    """Сохраняет отсортированный список ID в файл состояния."""
     state_file.parent.mkdir(parents=True, exist_ok=True)
     try:
-        # Преобразуем в список и сортируем. Сортировка строк '10', '2' -> ['10', '2'].
-        # Для числовой сортировки: sorted(list(all_ids_to_save), key=int)
-        final_list_to_save = sorted(list(all_ids_to_save), key=int)
-
+        sorted_ids = sorted(list(all_ids_to_save), key=int)
         with state_file.open("w", encoding="utf-8") as f:
-            json.dump(final_list_to_save, f, ensure_ascii=False, indent=2)
-        logging.info(f"Saved {len(final_list_to_save)} IDs to state file {state_file}")
+            json.dump(sorted_ids, f, ensure_ascii=False, indent=2)
+        logging.info(f"Сохранено {len(sorted_ids)} ID в файл состояния {state_file}.")
     except Exception as e:
-        logging.error(f"Failed to save state file {state_file}: {e}")
-
+        logging.error(f"Не удалось сохранить файл состояния {state_file}: {e}")
 
 async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
-    """
-    Основная функция для запуска постера.
-    """
-    token = os.getenv("TELEGRAM_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHANNEL")
+    """Основная функция для запуска постера."""
+    token, chat_id = os.getenv("TELEGRAM_TOKEN"), os.getenv("TELEGRAM_CHANNEL")
     if not token or not chat_id:
-        logging.error("TELEGRAM_TOKEN and TELEGRAM_CHANNEL environment variables must be set.")
+        logging.error("Переменные окружения TELEGRAM_TOKEN и TELEGRAM_CHANNEL должны быть установлены.")
         return
 
-    delay = float(os.getenv("POST_DELAY", DEFAULT_DELAY))
-    parsed_root = Path(parsed_dir)
-    state_file = Path(state_path)
-
+    parsed_root, state_file = Path(parsed_dir), Path(state_path)
     if not parsed_root.is_dir():
-        logging.error(f"Directory {parsed_root} does not exist. Exiting.")
+        logging.error(f"Директория {parsed_root} не существует. Выход.")
         return
 
     posted_ids = load_posted_ids(state_file)
-    logging.info(f"Loaded {len(posted_ids)} previously posted IDs from {state_file.name}.")
+    logging.info(f"Загружено {len(posted_ids)} ранее опубликованных ID.")
 
-    articles_to_post: List[Dict[str, Any]] = []
+    articles_to_post = []
     for d in sorted(parsed_root.iterdir()):
         meta_file = d / "meta.json"
         if d.is_dir() and meta_file.is_file():
             try:
                 art_meta = json.loads(meta_file.read_text(encoding="utf-8"))
-                # Работаем с ID как со строками
                 article_id = str(art_meta.get("id"))
                 if article_id and article_id != 'None' and article_id not in posted_ids:
                     if validated_data := validate_article(art_meta, d):
-                        html_title, text_path, image_paths, original_title = validated_data
+                        _, text_path, image_paths, original_title = validated_data
                         articles_to_post.append({
                             "id": article_id,
-                            "html_title": html_title,
+                            "html_title": f"<b>{escape_html(original_title)}</b>",
                             "text_path": text_path,
                             "image_paths": image_paths,
                             "original_title": original_title
                         })
-            except (json.JSONDecodeError, Exception) as e:
-                logging.warning(f"Could not process meta.json in {d.name}: {e}. Skipping.")
-    
-    # Сортируем статьи по ID (числовому)
-    articles_to_post.sort(key=lambda x: int(x["id"]))
+            except Exception as e:
+                logging.warning(f"Не удалось обработать {d.name}: {e}")
 
+    articles_to_post.sort(key=lambda x: int(x["id"]))
     if not articles_to_post:
-        logging.info("🔍 No new articles to post. Exiting.")
+        logging.info("🔍 Нет новых статей для публикации.")
         return
 
-    logging.info(f"Found {len(articles_to_post)} new articles to consider for posting.")
-
-    client = httpx.AsyncClient()
-    sent_count = 0
-    newly_posted_ids: Set[str] = set()
-
-    for article in articles_to_post:
-        if limit is not None and sent_count >= limit:
-            logging.info(f"Posting limit of {limit} reached. Stopping.")
-            break
-
-        aid = article["id"]
-        logging.info(f"Attempting to post article ID={aid}")
+    logging.info(f"Найдено {len(articles_to_post)} новых статей для публикации.")
+    
+    async with httpx.AsyncClient() as client:
+        sent_count = 0
+        newly_posted_ids: Set[str] = set()
         
-        posted_successfully = False
-        try:
-            # Сначала отправляем медиа группу, если есть изображения
-            if article["image_paths"]:
-                if not await send_media_group(client, token, chat_id, article["image_paths"]):
-                    logging.warning(f"Failed to send media group for ID={aid}. Continuing to send text.")
+        for article in articles_to_post:
+            if limit is not None and sent_count >= limit:
+                logging.info(f"Достигнут лимит в {limit} статей.")
+                break
+            
+            logging.info(f"Публикуем статью ID={article['id']}...")
+            try:
+                if article["image_paths"]:
+                    await send_media_group(client, token, chat_id, article["image_paths"])
 
-            raw_text = article["text_path"].read_text(encoding="utf-8")
-            # Убираем заголовок из начала текста, если он там есть
-            cleaned_text = raw_text.lstrip()
-            if cleaned_text.startswith(article["original_title"]):
-                 cleaned_text = cleaned_text[len(article["original_title"]):].lstrip()
+                raw_text = article["text_path"].read_text(encoding="utf-8")
+                cleaned_text = raw_text.lstrip()
+                if cleaned_text.startswith(article["original_title"]):
+                    cleaned_text = cleaned_text[len(article["original_title"]):].lstrip()
 
-            full_html_content = f"{article['html_title']}\n\n{escape_html(cleaned_text)}"
-            chunks = chunk_text(full_html_content)
+                full_html = f"{article['html_title']}\n\n{escape_html(cleaned_text)}"
+                chunks = chunk_text(full_html)
 
-            all_chunks_sent = True
-            for i, part in enumerate(chunks):
-                reply_markup = None
-                if i == len(chunks) - 1: # Добавляем кнопки к последнему сообщению
+                for i, chunk in enumerate(chunks):
+                    is_last_chunk = (i == len(chunks) - 1)
                     reply_markup = {
                         "inline_keyboard": [[
                             {"text": "Обмен валют", "url": "https://t.me/mister1dollar"},
                             {"text": "Отзывы", "url": "https://t.me/feedback1dollar"}
                         ]]
-                    }
-                
-                if not await send_message(client, token, chat_id, part, reply_markup=reply_markup):
-                    logging.error(f"Failed to send text chunk for ID={aid}. Skipping article.")
-                    all_chunks_sent = False
-                    break
+                    } if is_last_chunk else None
+                    if not await send_message(client, token, chat_id, chunk, reply_markup=reply_markup):
+                        raise Exception("Failed to send a message chunk.")
+
+                logging.info(f"✅ Опубликовано ID={article['id']}")
+                newly_posted_ids.add(article['id'])
+                sent_count += 1
+
+            except Exception as e:
+                logging.error(f"❌ Ошибка при публикации ID={article['id']}: {e}", exc_info=True)
             
-            if all_chunks_sent:
-                posted_successfully = True
-
-        except Exception as e:
-            logging.error(f"❌ An error occurred while posting article ID={aid}: {e}", exc_info=True)
-
-        if posted_successfully:
-            newly_posted_ids.add(aid)
-            sent_count += 1
-            logging.info(f"✅ Successfully posted ID={aid}")
-        
-        await asyncio.sleep(delay)
-
-    await client.aclose()
+            await asyncio.sleep(float(os.getenv("POST_DELAY", DEFAULT_DELAY)))
 
     if newly_posted_ids:
         all_ids_to_save = posted_ids.union(newly_posted_ids)
         save_posted_ids(all_ids_to_save, state_file)
     
-    logging.info(f"📢 Finished: Sent {sent_count} articles in this run.")
+    logging.info(f"📢 Завершено: отправлено {sent_count} статей.")
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Poster: posts articles in batches to Telegram"
-    )
-    parser.add_argument(
-        "--parsed-dir",
-        type=str,
-        default="articles",
-        help="directory with parsed articles"
-    )
-    parser.add_argument(
-        "--state-file",
-        type=str,
-        default="articles/posted.json",
-        help="path to the state file"
-    )
-    parser.add_argument(
-        "-n", "--limit",
-        type=int,
-        default=None,
-        help="maximum number of articles to send"
-    )
+    parser = argparse.ArgumentParser(description="Публикует статьи в Telegram.")
+    parser.add_argument("--parsed-dir", type=str, default="articles", help="Директория со статьями.")
+    parser.add_argument("--state-file", type=str, default="articles/posted.json", help="Файл состояния.")
+    parser.add_argument("-n", "--limit", type=int, default=None, help="Лимит статей за запуск.")
     args = parser.parse_args()
-    asyncio.run(main(
-        parsed_dir=args.parsed_dir,
-        state_path=args.state_file,
-        limit=args.limit
-    ))
-
+    asyncio.run(main(args.parsed_dir, args.state_file, args.limit))
