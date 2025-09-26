@@ -79,54 +79,55 @@ def chunk_text(text: str, size: int = 4096) -> List[str]:
     return chunks
 
 
-def apply_watermark(img_path: Path, scale: float = 0.45) -> bytes:
+def apply_watermark(img_path: Path, scale: float = 0.35) -> bytes:
     """
-    Накладывает watermark.png в правый верхний угол изображения с отступом.
+    Накладывает watermark.png и возвращает изображение в виде байтов JPEG.
     """
     try:
         base_img = Image.open(img_path).convert("RGBA")
-        base_width, base_height = base_img.size
+        base_width, _ = base_img.size
 
-        script_dir = Path(__file__).parent
-        watermark_path = script_dir / "watermark.png"
+        watermark_path = Path(__file__).parent / "watermark.png"
         if not watermark_path.exists():
-            logging.warning("Watermark file not found at %s. Skipping watermark.", watermark_path)
+            logging.warning("Файл watermark.png не найден. Возвращаем оригинальное изображение.")
             img_byte_arr = BytesIO()
-            # Сохраняем в JPEG для уменьшения размера, если нет альфа-канала
-            format_to_save = 'PNG' if base_img.mode == 'RGBA' else 'JPEG'
-            base_img.convert('RGB').save(img_byte_arr, format=format_to_save)
+            base_img.convert("RGB").save(img_byte_arr, format='JPEG', quality=90)
             return img_byte_arr.getvalue()
 
         watermark_img = Image.open(watermark_path).convert("RGBA")
-
+        
+        # Масштабирование водяного знака
         wm_width, wm_height = watermark_img.size
         new_wm_width = int(base_width * scale)
         new_wm_height = int(wm_height * (new_wm_width / wm_width))
-        filt = getattr(Image.Resampling, "LANCZOS", Image.LANCZOS)
-        watermark_img = watermark_img.resize((new_wm_width, new_wm_height), resample=filt)
-
+        resample_filter = getattr(Image.Resampling, "LANCZOS", Image.LANCZOS)
+        watermark_img = watermark_img.resize((new_wm_width, new_wm_height), resample=resample_filter)
+        
+        # Создаём пустой слой РАЗМЕРОМ С ОСНОВНОЕ ИЗОБРАЖЕНИЕ
         overlay = Image.new("RGBA", base_img.size, (0, 0, 0, 0))
 
+        # Наносим вотермарку на этот слой в нужную позицию
         padding = int(base_width * 0.02)
         position = (base_width - new_wm_width - padding, padding)
-        overlay.paste(watermark_img, position, watermark_img)
+        overlay.paste(watermark_img, position, watermark_img) # Используем маску для прозрачности
 
-        composite_img = Image.alpha_composite(base_img, overlay).convert('RGB')
+        # Совмещаем основное изображение со СЛОЕМ (overlay), а не с маленькой вотермаркой
+        composite_img = Image.alpha_composite(base_img, overlay).convert("RGB")
 
+        # Сохраняем в байты как JPEG для экономии места
         img_byte_arr = BytesIO()
         composite_img.save(img_byte_arr, format='JPEG', quality=90)
         return img_byte_arr.getvalue()
+        
     except Exception as e:
-        logging.error(f"Failed to apply watermark to {img_path}: {e}")
+        logging.error(f"Не удалось наложить водяной знак на {img_path}: {e}")
+        # Возвращаем оригинал в случае ошибки
         try:
-            img_byte_arr = BytesIO()
-            Image.open(img_path).convert('RGB').save(img_byte_arr, format='JPEG', quality=90)
-            return img_byte_arr.getvalue()
+            with open(img_path, 'rb') as f:
+                return f.read()
         except Exception as e_orig:
-            logging.error(f"Failed to load original image {img_path} after watermark error: {e_orig}")
+            logging.error(f"Не удалось даже прочитать оригинальное изображение {img_path}: {e_orig}")
             return b""
-
-
 async def _post_with_retry(
     client: httpx.AsyncClient,
     method: str,
@@ -447,3 +448,4 @@ if __name__ == "__main__":
         state_path=args.state_file,
         limit=args.limit
     ))
+
