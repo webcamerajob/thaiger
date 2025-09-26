@@ -19,7 +19,7 @@ env:
   BATCH_LIMIT: 15
 
 jobs:
-  build-and-publish: # <-- ОБЪЕДИНЕННАЯ ЗАДАЧА
+  build-and-publish:
     name: Parse and Publish
     runs-on: ubuntu-latest
     
@@ -46,7 +46,9 @@ jobs:
 
       - name: Install requirements
         run: |
-          pip install -r requirements-parser.txt
+          if [ -f requirements-parser.txt ]; then
+            pip install -r requirements-parser.txt
+          fi
           if [ -f requirements-poster.txt ]; then
             pip install -r requirements-poster.txt
           fi
@@ -71,6 +73,7 @@ jobs:
         if: steps.parse_step.outputs.new_articles_found == 'true'
         run: |
           echo "→ Running poster..."
+          # Постер работает с папкой articles, которую создал парсер на предыдущем шаге
           python3 poster.py \
             --parsed-dir articles \
             --state-file articles/posted.json \
