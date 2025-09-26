@@ -57,8 +57,8 @@ jobs:
         id: parse_step
         run: |
           echo "→ STARTING PARSER RUN"
-          # Убедитесь, что имя файла (например, main.py) верное
-          python3 main.py \
+          # Убедитесь, что имя файла (например, parser.py) верное
+          python3 parser.py \
             --lang 'ru' \
             --limit ${{ env.BATCH_LIMIT_PARSE || 15 }} \
             --posted-state-file articles/posted.json | tee parser_output.txt
@@ -84,13 +84,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Добавляем для сохранения ОБА файла состояния
-          git add articles/posted.json articles/catalog.json
+          # Добавляем файлы для коммита, только если они существуют
+          if [ -f "articles/posted.json" ]; then
+            git add articles/posted.json
+          fi
+          if [ -f "articles/catalog.json" ]; then
+            git add articles/catalog.json
+          fi
 
           if ! git diff --cached --quiet; then
-            git commit -m "chore: update data files (posted, catalog)"
+            git commit -m "chore: update data files"
             git pull --rebase origin main
             git push
           else
-            echo "✅ Data files (posted.json, catalog.json) unchanged"
+            echo "✅ Data files unchanged"
           fi
