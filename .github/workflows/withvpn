@@ -1,0 +1,212 @@
+name: Parse & Post Articles
+concurrency:
+  group: post-articles
+  cancel-in-progress: false
+  
+permissions:
+  contents: write
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '30 22 * * *'  # 5:30 UTC+7
+    #- cron: '0 23 * * *'   # 6:00
+    #- cron: '30 23 * * *'  # 6:30
+    #- cron: '0 0 * * *'    # 7:00
+    - cron: '30 0 * * *'   # 7:30
+    #- cron: '0 1 * * *'    # 8:00
+    #- cron: '30 1 * * *'   # 8:30
+    #- cron: '0 2 * * *'    # 9:00
+    - cron: '30 2 * * *'   # 9:30
+    #- cron: '0 3 * * *'    # 10:00
+    #- cron: '30 3 * * *'   # 10:30
+    #- cron: '0 4 * * *'    # 11:00
+    - cron: '30 4 * * *'   # 11:30
+    #- cron: '0 5 * * *'    # 12:00
+    #- cron: '30 5 * * *'   # 12:30
+    #- cron: '0 6 * * *'    # 13:00
+    - cron: '30 6 * * *'   # 13:30
+    #- cron: '0 7 * * *'    # 14:00
+    #- cron: '30 7 * * *'   # 14:30
+    #- cron: '0 8 * * *'    # 15:00
+    - cron: '30 8 * * *'   # 15:30
+    #- cron: '0 9 * * *'    # 16:00
+    #- cron: '30 9 * * *'   # 16:30
+    #- cron: '0 10 * * *'   # 17:00
+    #- cron: '30 10 * * *'  # 17:30
+    #- cron: '0 11 * * *'   # 18:00
+    #- cron: '30 11 * * *'  # 18:30
+    
+env:
+  POST_DELAY: 10
+  BATCH_LIMIT: 15
+
+jobs:
+
+  parse:
+    name: Парсинг → артефакты (WireGuard)
+    runs-on: ubuntu-latest
+    # ДОБАВЛЕНО: Секция outputs для джоба parse
+    outputs:
+      new_articles_found: ${{ steps.parse_step.outputs.new_articles_found }} # Передаем выход шага как выход джоба
+    env:
+      WG_CONFIG: ${{ secrets.WG_CONFIG }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-parser.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install parser requirements
+        run: |
+          if [ -f requirements-parser.txt ]; then
+            pip install -r requirements-parser.txt
+          fi
+
+#      - name: 🔐 Setup WireGuard & install jq
+#        run: |
+#          sudo apt-get update \
+#            && sudo apt-get install -y wireguard-tools resolvconf curl jq
+#          mkdir -p $HOME/wg
+#          # Пишем конфиг напрямую, без base64‐decode
+#          echo "$WG_CONFIG" > $HOME/wg/wg0.conf
+#          chmod 600 $HOME/wg/wg0.conf
+#          sudo wg-quick up $HOME/wg/wg0.conf
+#          echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf
+  
+      # ====================================================================
+      # НОВЫЙ/ИЗМЕНЕННЫЙ БЛОК: Run parser
+      # ====================================================================
+      - name: Run parser
+        id: parse_step # <-- ID для шага, чтобы к нему можно было обращаться
+        run: |
+          echo "→ STARTING PARSER RUN" # Маркер начала работы парсера
+          # Запускаем парсер, его логи идут напрямую в консоль и в файл
+          python3 -u main.py \
+            --lang ${{ inputs.lang || 'ru' }} \
+            --limit ${{ env.BATCH_LIMIT_PARSE || 15 }} \
+            --posted-state-file articles/posted.json | tee parser_output.txt
+
+          echo "→ PARSER RUN COMPLETE" # Маркер завершения работы парсера
+          
+          # Извлекаем статус из файла вывода и устанавливаем его как выход шага
+          # Используем `tr -d '[:space:]'` для удаления всех пробельных символов (включая новую строку)
+          NEW_ARTICLES_STATUS=$(grep "NEW_ARTICLES_STATUS:" parser_output.txt | cut -d: -f2 | tr -d '[:space:]') # <-- ДОБАВЛЕНО: tr -d '[:space:]'
+          echo "new_articles_found=$NEW_ARTICLES_STATUS" >> $GITHUB_OUTPUT # <-- Установка выхода шага
+          echo "Extracted new_articles_found status: '$NEW_ARTICLES_STATUS'" # <-- Для отладки (добавил кавычки)
+      # ====================================================================
+
+#      - name: 🛑 Teardown WireGuard
+#        if: always()
+#        run: sudo wg-quick down $HOME/wg/wg0.conf || true
+
+      - name: Debug all files
+        run: ls -R
+
+      - name: Debug parser output
+        run: |
+          echo "→ Tree of generated articles/:"
+          ls -R articles
+
+      - name: Upload parsed-content
+        uses: actions/upload-artifact@v4
+        with:
+          name: parsed-content
+          path: articles/*
+
+  post:
+    name: Publish new articles
+    needs: parse
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+
+    steps:
+      - name: Checkout repo (contains empty catalog.json)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python for poster
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-poster.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            
+      - name: Install poster requirements
+        run: |
+          pip install -r requirements-poster.txt
+
+      - name: Download parsed-content
+        uses: actions/download-artifact@v4
+        with:
+          name: parsed-content
+          path: parsed_articles
+
+      - name: Debug parsed_articles
+        run: |
+          echo "→ Tree of parsed_articles/:"
+          ls -R parsed_articles
+
+      # ====================================================================
+      # НОВЫЙ/ИЗМЕНЕННЫЙ БЛОК: Run poster
+      # ====================================================================
+      - name: Debug extracted status
+        run: |
+          # ИЗМЕНЕНО: Теперь ссылаемся на needs.parse.outputs.new_articles_found
+          echo "Value of new_articles_found from parse_step: '${{ needs.parse.outputs.new_articles_found }}'"
+          echo "Comparison result: ${{ needs.parse.outputs.new_articles_found == 'true' }}"
+      - name: Run poster
+        # ИЗМЕНЕНО: Теперь ссылаемся на needs.parse.outputs.new_articles_found
+        if: needs.parse.outputs.new_articles_found == 'true' 
+        run: |
+          echo "→ Running poster against parsed_articles"
+          python3 poster.py \
+            --parsed-dir parsed_articles \
+            --state-file articles/posted.json \
+            --limit $BATCH_LIMIT
+      # ====================================================================
+
+      - name: Debug articles after poster
+        run: |
+          echo "→ Tree of articles/ after poster run:"
+          ls -R articles
+
+      - name: Commit updated posted.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add articles/posted.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update posted catalog after posting"
+
+            # Подтягиваем последние изменения с удалённого main и ребейзим локальные коммиты
+            git pull --rebase origin main
+
+            git push
+          else
+            echo "✅ posted.json unchanged"
+          fi
