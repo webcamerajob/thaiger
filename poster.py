@@ -7,8 +7,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 from io import BytesIO
-from collections import deque # deque по-прежнему полезен, но не так централизованно
-
+from collections import deque
 import httpx
 from httpx import HTTPStatusError, ReadTimeout, Timeout
 from PIL import Image
@@ -19,7 +18,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 # --- Константа для ограничения количества записей в posted.json ---
-# Если при 200 записях хотим оставить 100, то лимит хранения = 100.
 MAX_POSTED_RECORDS = 100
 
 # --- Настройка размера вотермарки ---
@@ -33,8 +31,7 @@ DEFAULT_DELAY = 10.0
 
 def escape_html(text: str) -> str:
     """
-    Экранирует спецсимволы HTML (<, >, &, ") для корректного отображения в Telegram с parse_mode='HTML'.
-    Этот метод должен применяться к СЫРОМУ тексту, который НЕ ЯВЛЯЕТСЯ HTML-тегами.
+    Экранирует спецсимволы HTML (<, >, &, ") для корректного отображения.
     """
     text = text.replace("&", "&amp;")
     text = text.replace("<", "&lt;")
@@ -95,7 +92,9 @@ def apply_watermark(img_path: Path, scale: float = 0.45) -> bytes:
         if not watermark_path.exists():
             logging.warning("Watermark file not found at %s. Skipping watermark.", watermark_path)
             img_byte_arr = BytesIO()
-            base_img.save(img_byte_arr, format='PNG')
+            # Сохраняем в JPEG для уменьшения размера, если нет альфа-канала
+            format_to_save = 'PNG' if base_img.mode == 'RGBA' else 'JPEG'
+            base_img.convert('RGB').save(img_byte_arr, format=format_to_save)
             return img_byte_arr.getvalue()
 
         watermark_img = Image.open(watermark_path).convert("RGBA")
@@ -112,16 +111,16 @@ def apply_watermark(img_path: Path, scale: float = 0.45) -> bytes:
         position = (base_width - new_wm_width - padding, padding)
         overlay.paste(watermark_img, position, watermark_img)
 
-        composite_img = Image.alpha_composite(base_img, overlay)
+        composite_img = Image.alpha_composite(base_img, overlay).convert('RGB')
 
         img_byte_arr = BytesIO()
-        composite_img.save(img_byte_arr, format='PNG')
+        composite_img.save(img_byte_arr, format='JPEG', quality=90)
         return img_byte_arr.getvalue()
     except Exception as e:
         logging.error(f"Failed to apply watermark to {img_path}: {e}")
         try:
             img_byte_arr = BytesIO()
-            Image.open(img_path).save(img_byte_arr, format='PNG')
+            Image.open(img_path).convert('RGB').save(img_byte_arr, format='JPEG', quality=90)
             return img_byte_arr.getvalue()
         except Exception as e_orig:
             logging.error(f"Failed to load original image {img_path} after watermark error: {e_orig}")
@@ -136,14 +135,13 @@ async def _post_with_retry(
     files: Optional[Dict[str, Any]] = None
 ) -> bool:
     """
-    Выполняет HTTP POST-запрос с повторными попытками и обработкой 429 Too Many Requests.
+    Выполняет HTTP POST-запрос с повторными попытками.
     """
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             resp = await client.request(method, url, data=data, files=files, timeout=HTTPX_TIMEOUT)
             resp.raise_for_status()
             return True
-
         except ReadTimeout:
             logging.warning("⏱ Timeout %s/%s for %s", attempt, MAX_RETRIES, url)
         except HTTPStatusError as e:
@@ -177,43 +175,31 @@ async def send_media_group(
     images: List[Path]
 ) -> bool:
     """
-    Отправляет альбом фотографий без подписи (подпись будет в первом текстовом чанке).
-    Все изображения проходят через apply_watermark.
-    Ограничение на 10 изображений для медиагруппы Telegram.
+    Отправляет альбом фотографий без подписи.
     """
-    url   = f"https://api.telegram.org/bot{token}/sendMediaGroup"
+    url = f"https://api.telegram.org/bot{token}/sendMediaGroup"
     media = []
     files = {}
-    photo_count = 0
 
     if not images:
         logging.warning("No images provided for media group.")
         return False
 
-    for idx, img_path in enumerate(images):
-        if photo_count >= 10:
-            logging.warning("Telegram media group limit (10 images) reached. Skipping remaining images.")
-            break
+    for idx, img_path in enumerate(images[:10]): # Ограничение Telegram на 10 фото
         try:
             image_bytes = apply_watermark(img_path, scale=WATERMARK_SCALE)
             if not image_bytes:
-                logging.warning(f"Skipping image {img_path} due to empty bytes after watermark processing.")
+                logging.warning(f"Skipping image {img_path} due to empty bytes.")
                 continue
 
             key = f"file{idx}"
-            files[key] = (img_path.name, image_bytes, "image/png")
-
-            media_item = {
-                "type": "photo",
-                "media": f"attach://{key}"
-            }
-            media.append(media_item)
-            photo_count += 1
+            files[key] = (img_path.name, image_bytes, "image/jpeg")
+            media.append({"type": "photo", "media": f"attach://{key}"})
         except Exception as e:
             logging.error(f"Error processing image {img_path} for media group: {e}")
 
     if not media:
-        logging.warning("No valid images to send in media group after processing.")
+        logging.warning("No valid images to send in media group.")
         return False
 
     data = {
@@ -232,8 +218,6 @@ async def send_message(
 ) -> bool:
     """
     Отправляет текстовое сообщение с разбором HTML.
-    Текст, передаваемый в эту функцию, должен быть уже отформатирован и экранирован для HTML.
-    Опционально может содержать кнопки (inline keyboard).
     """
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     data = {
@@ -253,125 +237,68 @@ def validate_article(
 ) -> Optional[Tuple[str, Path, List[Path], str]]:
     """
     Проверяет структуру папки статьи и возвращает подготовленные данные.
-    Возвращает HTML-отформатированный заголовок, путь к текстовому файлу,
-    список путей к изображениям и ОРИГИНАЛЬНЫЙ неформатированный заголовок.
     """
-    aid      = art.get("id")
-    title    = art.get("title", "").strip()
+    aid = art.get("id")
+    title = art.get("title", "").strip()
     txt_name = Path(art.get("text_file", "")).name if art.get("text_file") else None
 
-    if not title:
-        logging.error("Invalid title for article in %s (ID: %s). Skipping.", article_dir, aid)
+    if not all([aid, title, txt_name]):
+        logging.error("Invalid meta.json in %s (missing id, title, or text_file).", article_dir)
         return None
 
-    text_path: Optional[Path] = None
-    if txt_name:
-        candidate_path = article_dir / txt_name
-        if candidate_path.is_file():
-            text_path = candidate_path
-    
-    if not text_path:
-        if (article_dir / "content.ru.txt").is_file():
-            text_path = article_dir / "content.ru.txt"
-        elif (article_dir / "content.txt").is_file():
-            text_path = article_dir / "content.txt"
-        else:
-            candidates = list(article_dir.glob("*.txt"))
-            if candidates:
-                text_path = candidates[0]
-
-    if not text_path or not text_path.is_file():
-        logging.error("No text file found for article in %s (ID: %s). Skipping.", article_dir, aid)
+    text_path = article_dir / txt_name
+    if not text_path.is_file():
+        logging.error("Text file %s not found for article in %s. Skipping.", text_path, article_dir)
         return None
 
-    valid_imgs: List[Path] = []
-    for name in art.get("images", []):
-        p = article_dir / Path(name).name
-        if not p.is_file():
-            p = article_dir / "images" / Path(name).name
-        if p.is_file():
-            valid_imgs.append(p)
-
-    if not valid_imgs:
-        imgs_dir = article_dir / "images"
-        if imgs_dir.is_dir():
-            valid_imgs = [
-                p for p in imgs_dir.iterdir()
-                if p.suffix.lower() in (".jpg", ".jpeg", ".png")
-            ]
+    valid_imgs = sorted([
+        article_dir / "images" / Path(p).name for p in art.get("images", [])
+        if (article_dir / "images" / Path(p).name).is_file()
+    ])
 
     html_title = f"<b>{escape_html(title)}</b>"
-    
     return html_title, text_path, valid_imgs, title
 
 
-def load_posted_ids(state_file: Path) -> Set[int]:
+def load_posted_ids(state_file: Path) -> Set[str]:
     """
-    Читает state-файл, загружает все ID, обрезает их до MAX_POSTED_RECORDS
-    (сохраняя самые новые), и возвращает set из этих ID.
+    Читает state-файл, возвращает set из ID в виде СТРОК.
+    Обрезает список до MAX_POSTED_RECORDS, сохраняя самые новые.
     """
-    ids_from_file: List[int] = []
     if not state_file.is_file():
-        logging.info("State file %s not found. Returning empty set.", state_file)
         return set()
-
+    
+    ids_from_file: List[str] = []
     try:
-        data = json.loads(state_file.read_text(encoding="utf-8").strip())
+        data = json.loads(state_file.read_text(encoding="utf-8"))
         if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict) and "id" in item:
-                    try:
-                        ids_from_file.append(int(item["id"]))
-                    except (ValueError, TypeError):
-                        logging.warning("Invalid ID format in state file: %s. Skipping.", item)
-                elif isinstance(item, (int, str)) and str(item).isdigit():
-                    ids_from_file.append(int(item))
-                else:
-                    logging.warning("Unexpected item type in state file: %s. Skipping.", item)
-        else:
-            logging.warning("State file %s content is not a list. Returning empty set.", state_file)
-    except json.JSONDecodeError:
-        logging.warning("State file %s is not valid JSON. Returning empty set.", state_file)
-    except Exception as e:
-        logging.error(f"Error reading existing state file {state_file}: {e}. Returning empty set.")
+            # Преобразуем все элементы в строки для консистентности
+            ids_from_file = [str(item) for item in data if item is not None]
+    except (json.JSONDecodeError, Exception) as e:
+        logging.warning(f"Error reading or parsing state file {state_file}: {e}. Returning empty set.")
 
-    # Обрезаем список до MAX_POSTED_RECORDS, сохраняя самые новые (с конца списка)
-    # Если список меньше, чем MAX_POSTED_RECORDS, он останется как есть.
+    # Обрезаем список, сохраняя самые новые (в конце списка)
     if len(ids_from_file) > MAX_POSTED_RECORDS:
-        ids_from_file = ids_from_file[-MAX_POSTED_RECORDS:]
-        logging.info("State file %s trimmed to %d records during load.", state_file.name, MAX_POSTED_RECORDS)
+        start_index = len(ids_from_file) - MAX_POSTED_RECORDS
+        ids_from_file = ids_from_file[start_index:]
+        logging.info(f"State file trimmed to last {MAX_POSTED_RECORDS} records during load.")
 
     return set(ids_from_file)
 
 
-def save_posted_ids(all_ids_to_save: Set[int], state_file: Path) -> None:
+def save_posted_ids(all_ids_to_save: Set[str], state_file: Path) -> None:
     """
-    Сохраняет список опубликованных ID статей в файл состояния.
-    Объединяет старые и новые ID, затем обрезает до MAX_POSTED_RECORDS,
-    сохраняя самые новые ID.
+    Сохраняет отсортированный список ID (как строки) в файл состояния.
     """
     state_file.parent.mkdir(parents=True, exist_ok=True)
-
-    # Используем deque для эффективного управления фиксированным размером.
-    # Добавляем элементы в обратном порядке (от самых новых к старым),
-    # чтобы при выгрузке в список они были в прямом порядке.
-    temp_deque = deque(maxlen=MAX_POSTED_RECORDS)
-    
-    # Сначала добавим все ID из all_ids_to_save в deque
-    # Важно: Чтобы сохранить "новейшие", если all_ids_to_save большой,
-    # нужно добавить их в deque в порядке от самых старых до самых новых.
-    # Если all_ids_to_save - это Set, порядок не гарантирован.
-    # Сортируем для обеспечения правильного порядка при обрезке.
-    sorted_ids = sorted(list(all_ids_to_save))
-    for aid in sorted_ids:
-        temp_deque.append(aid)
-
     try:
-        # Преобразуем deque в список для записи.
-        final_list_to_save = list(temp_deque)
+        # Преобразуем в список и сортируем. Сортировка строк '10', '2' -> ['10', '2'].
+        # Для числовой сортировки: sorted(list(all_ids_to_save), key=int)
+        final_list_to_save = sorted(list(all_ids_to_save), key=int)
+
         with state_file.open("w", encoding="utf-8") as f:
             json.dump(final_list_to_save, f, ensure_ascii=False, indent=2)
-        logging.info(f"Saved {len(final_list_to_save)} IDs to state file {state_file} (max {MAX_POSTED_RECORDS}).")
+        logging.info(f"Saved {len(final_list_to_save)} IDs to state file {state_file}")
     except Exception as e:
         logging.error(f"Failed to save state file {state_file}: {e}")
 
@@ -380,125 +307,94 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
     """
     Основная функция для запуска постера.
     """
-    token       = os.getenv("TELEGRAM_TOKEN")
-    chat_id     = os.getenv("TELEGRAM_CHANNEL")
+    token = os.getenv("TELEGRAM_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHANNEL")
     if not token or not chat_id:
-        logging.error("TELEGRAM_TOKEN или TELEGRAM_CHANNEL переменные окружения должны быть установлены.")
+        logging.error("TELEGRAM_TOKEN and TELEGRAM_CHANNEL environment variables must be set.")
         return
 
-    delay       = float(os.getenv("POST_DELAY", DEFAULT_DELAY))
+    delay = float(os.getenv("POST_DELAY", DEFAULT_DELAY))
     parsed_root = Path(parsed_dir)
-    state_file  = Path(state_path)
+    state_file = Path(state_path)
 
     if not parsed_root.is_dir():
-        logging.error("Директория %s не существует. Выход.", parsed_root)
+        logging.error(f"Directory {parsed_root} does not exist. Exiting.")
         return
 
-    # 1) Загрузка уже опубликованных ID.
-    # posted_ids_old теперь является set'ом, который уже обрезан до MAX_POSTED_RECORDS.
-    posted_ids_old = load_posted_ids(state_file)
-    logging.info("Загружено %d ранее опубликованных ID из %s (актуальных после обрезки).", len(posted_ids_old), state_file.name)
+    posted_ids = load_posted_ids(state_file)
+    logging.info(f"Loaded {len(posted_ids)} previously posted IDs from {state_file.name}.")
 
-    # 2) Сбор папок со статьями и их валидация
     articles_to_post: List[Dict[str, Any]] = []
     for d in sorted(parsed_root.iterdir()):
         meta_file = d / "meta.json"
         if d.is_dir() and meta_file.is_file():
             try:
                 art_meta = json.loads(meta_file.read_text(encoding="utf-8"))
-                # Важно: здесь posted_ids_old уже содержит только "актуальные" ID
-                if art_meta.get("id") is not None and art_meta["id"] not in posted_ids_old:
-                    validated_data = validate_article(art_meta, d)
-                    if validated_data:
-                        html_title, text_path, image_paths, original_plain_title = validated_data
-                        validated_data_dict = {
-                            "id": art_meta["id"],
+                # Работаем с ID как со строками
+                article_id = str(art_meta.get("id"))
+                if article_id and article_id != 'None' and article_id not in posted_ids:
+                    if validated_data := validate_article(art_meta, d):
+                        html_title, text_path, image_paths, original_title = validated_data
+                        articles_to_post.append({
+                            "id": article_id,
                             "html_title": html_title,
                             "text_path": text_path,
                             "image_paths": image_paths,
-                            "original_plain_title": original_plain_title
-                        }
-                        articles_to_post.append(validated_data_dict)
-                    else:
-                        logging.warning("Валидация метаданных статьи не удалась для %s. Пропускаем.", d.name)
-                elif art_meta.get("id") is not None:
-                    logging.debug("Пропускаем уже опубликованную статью ID=%s.", art_meta["id"])
-                else:
-                    logging.warning("Статья в %s не имеет ID в meta.json. Пропускаем.", d.name)
-            except json.JSONDecodeError as e:
-                logging.warning("Не удается загрузить или разобрать meta.json в %s: %s. Пропускаем.", d.name, e)
-            except Exception as e:
-                logging.error("Произошла непредвиденная ошибка при обработке статьи %s: %s. Пропускаем.", d.name, e)
+                            "original_title": original_title
+                        })
+            except (json.JSONDecodeError, Exception) as e:
+                logging.warning(f"Could not process meta.json in {d.name}: {e}. Skipping.")
     
-    articles_to_post.sort(key=lambda x: x["id"])
+    # Сортируем статьи по ID (числовому)
+    articles_to_post.sort(key=lambda x: int(x["id"]))
 
     if not articles_to_post:
-        logging.info("🔍 Нет новых статей для публикации. Выход.")
+        logging.info("🔍 No new articles to post. Exiting.")
         return
 
-    logging.info("Найдено %d новых статей для рассмотрения к публикации.", len(articles_to_post))
+    logging.info(f"Found {len(articles_to_post)} new articles to consider for posting.")
 
-    client    = httpx.AsyncClient()
-    sent      = 0
-    new_ids: Set[int] = set() # Множество для сбора ID, опубликованных в этом запуске
+    client = httpx.AsyncClient()
+    sent_count = 0
+    newly_posted_ids: Set[str] = set()
 
-    # 3) Публикация каждой статьи
     for article in articles_to_post:
-        if limit is not None and sent >= limit:
-            logging.info("Лимит пачки в %d достигнут. Остановка.", limit)
+        if limit is not None and sent_count >= limit:
+            logging.info(f"Posting limit of {limit} reached. Stopping.")
             break
 
-        aid         = article["id"]
-        html_title  = article["html_title"]
-        text_path   = article["text_path"]
-        image_paths = article["image_paths"]
-        original_plain_title = article["original_plain_title"]
-
-        logging.info("Попытка публикации ID=%s", aid)
+        aid = article["id"]
+        logging.info(f"Attempting to post article ID={aid}")
         
         posted_successfully = False
         try:
-            if image_paths:
-                if not await send_media_group(client, token, chat_id, image_paths):
-                    logging.warning("Не удалось отправить медиагруппу для ID=%s. Продолжаем отправлять только текст.", aid)
-            
-            raw_text = text_path.read_text(encoding="utf-8")
-            cleaned_raw_text = raw_text
-            if original_plain_title:
-                escaped_plain_title_for_regex = re.escape(original_plain_title)
-                pattern = re.compile(rf"^{escaped_plain_title_for_regex}\s*", re.DOTALL | re.IGNORECASE)
-                match = pattern.match(raw_text)
-                if match:
-                    cleaned_raw_text = raw_text[match.end():]
-                else:
-                    logging.warning(
-                        f"Оригинальный заголовок '{original_plain_title}' не найден в начале текстового файла для ID={aid}. "
-                        "Продолжаем без удаления. Убедитесь, что текстовый файл начинается с заголовка из meta.json."
-                    )
-                    cleaned_raw_text = raw_text
+            # Сначала отправляем медиа группу, если есть изображения
+            if article["image_paths"]:
+                if not await send_media_group(client, token, chat_id, article["image_paths"]):
+                    logging.warning(f"Failed to send media group for ID={aid}. Continuing to send text.")
 
-            escaped_raw_text = escape_html(cleaned_raw_text)
-            full_html_content = f"{html_title}\n\n{escaped_raw_text}"
-            
+            raw_text = article["text_path"].read_text(encoding="utf-8")
+            # Убираем заголовок из начала текста, если он там есть
+            cleaned_text = raw_text.lstrip()
+            if cleaned_text.startswith(article["original_title"]):
+                 cleaned_text = cleaned_text[len(article["original_title"]):].lstrip()
+
+            full_html_content = f"{article['html_title']}\n\n{escape_html(cleaned_text)}"
             chunks = chunk_text(full_html_content)
-            num_chunks = len(chunks)
 
             all_chunks_sent = True
             for i, part in enumerate(chunks):
-                current_reply_markup = None
-                if i == num_chunks - 1:
-                    keyboard = {
-                        "inline_keyboard": [
-                            [
-                                {"text": "Обмен валют", "url": "https://t.me/mister1dollar"},
-                                {"text": "Отзывы", "url": "https://t.me/feedback1dollar"}
-                            ]
-                        ]
+                reply_markup = None
+                if i == len(chunks) - 1: # Добавляем кнопки к последнему сообщению
+                    reply_markup = {
+                        "inline_keyboard": [[
+                            {"text": "Обмен валют", "url": "https://t.me/mister1dollar"},
+                            {"text": "Отзывы", "url": "https://t.me/feedback1dollar"}
+                        ]]
                     }
-                    current_reply_markup = keyboard
-
-                if not await send_message(client, token, chat_id, part, reply_markup=current_reply_markup):
-                    logging.error("Не удалось отправить текстовый чанк для ID=%s. Пропускаем оставшиеся чанки и статью.", aid)
+                
+                if not await send_message(client, token, chat_id, part, reply_markup=reply_markup):
+                    logging.error(f"Failed to send text chunk for ID={aid}. Skipping article.")
                     all_chunks_sent = False
                     break
             
@@ -506,46 +402,44 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int]):
                 posted_successfully = True
 
         except Exception as e:
-            logging.error(f"❌ Произошла ошибка во время публикации статьи ID={aid}: {e}. Переход к следующей статье.")
-            posted_successfully = False
+            logging.error(f"❌ An error occurred while posting article ID={aid}: {e}", exc_info=True)
 
         if posted_successfully:
-            new_ids.add(aid) # Добавляем в сет новых ID, опубликованных в этом запуске
-            sent += 1
-            logging.info("✅ Опубликовано ID=%s", aid)
+            newly_posted_ids.add(aid)
+            sent_count += 1
+            logging.info(f"✅ Successfully posted ID={aid}")
         
         await asyncio.sleep(delay)
 
     await client.aclose()
 
-    # 4) Сохраняем обновлённый список ID
-    # all_ids_to_save теперь будет содержать старые актуальные ID + новые ID
-    all_ids_to_save = posted_ids_old.union(new_ids)
-    save_posted_ids(all_ids_to_save, state_file)
-    logging.info("Состояние обновлено. Всего уникальных ID для сохранения: %d.", len(all_ids_to_save))
-    logging.info("📢 Завершено: отправлено %d статей в этом запуске.", sent)
+    if newly_posted_ids:
+        all_ids_to_save = posted_ids.union(newly_posted_ids)
+        save_posted_ids(all_ids_to_save, state_file)
+    
+    logging.info(f"📢 Finished: Sent {sent_count} articles in this run.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Poster: публикует статьи пакетами в Telegram"
+        description="Poster: posts articles in batches to Telegram"
     )
     parser.add_argument(
         "--parsed-dir",
         type=str,
         default="articles",
-        help="директория с распарсенными статьями"
+        help="directory with parsed articles"
     )
     parser.add_argument(
         "--state-file",
         type=str,
         default="articles/posted.json",
-        help="путь к state-файлу"
+        help="path to the state file"
     )
     parser.add_argument(
         "-n", "--limit",
         type=int,
         default=None,
-        help="максимальное число статей для отправки"
+        help="maximum number of articles to send"
     )
     args = parser.parse_args()
     asyncio.run(main(
