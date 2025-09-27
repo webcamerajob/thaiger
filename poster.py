@@ -200,12 +200,31 @@ def validate_article(
     return html_title, text_path, valid_imgs, title
 
 def load_posted_ids(state_file: Path) -> Set[str]:
-    """Читает state-файл и возвращает set из ID в виде СТРОК."""
-    if not state_file.is_file(): return set()
+    """
+    Читает state-файл, корректно обрезает список до MAX_POSTED_RECORDS,
+    сохраняя самые новые, и возвращает set из ID в виде СТРОК.
+    """
+    if not state_file.is_file():
+        return set()
+    
     try:
         data = json.loads(state_file.read_text(encoding="utf-8"))
-        ids = {str(item) for item in data if item is not None} if isinstance(data, list) else set()
-        return set(list(ids)[-MAX_POSTED_RECORDS:])
+        
+        # Убеждаемся, что работаем со списком
+        if not isinstance(data, list):
+            logging.warning(f"Данные в {state_file} - не список. Возвращаем пустой набор.")
+            return set()
+
+        # --- ИСПРАВЛЕННАЯ ЛОГИКА ---
+        # 1. Сначала обрезаем СПИСОК, сохраняя последние (самые новые) записи.
+        if len(data) > MAX_POSTED_RECORDS:
+            start_index = len(data) - MAX_POSTED_RECORDS
+            data = data[start_index:]
+            logging.info(f"Файл состояния обрезан до последних {MAX_POSTED_RECORDS} записей.")
+
+        # 2. Только после этого превращаем в множество для быстрой проверки.
+        return {str(item) for item in data if item is not None}
+
     except (json.JSONDecodeError, Exception) as e:
         logging.warning(f"Ошибка чтения файла состояния {state_file}: {e}.")
         return set()
