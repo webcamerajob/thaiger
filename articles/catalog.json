@@ -10,11 +10,6 @@
     "translated_to": "ru"
   },
   {
-    "id": "947277",
-    "hash": "9a4b2e6dee8a1bfe056d5a90237219443ddabc87d5d57855b0adc1afea75ff42",
-    "translated_to": "ru"
-  },
-  {
     "id": "947280",
     "hash": "8381fa466da8ea02ea03aa326962271869da6b1fc0c7d593680d727cb3eca8ab",
     "translated_to": "ru"
@@ -77,6 +72,16 @@
   {
     "id": "947233",
     "hash": "8c0d913a5025f29d4ca372ba64f7ce55f89df84d919a3efc48672578d7a53605",
+    "translated_to": "ru"
+  },
+  {
+    "id": "947248",
+    "hash": "65a8f70827338c1bdb3a5d3e46ab656865342b3817e50d504cd1131a61ab976b",
+    "translated_to": "ru"
+  },
+  {
+    "id": "947277",
+    "hash": "9a4b2e6dee8a1bfe056d5a90237219443ddabc87d5d57855b0adc1afea75ff42",
     "translated_to": "ru"
   }
 ]
