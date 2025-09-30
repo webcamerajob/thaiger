@@ -240,11 +240,6 @@
     "translated_to": "ru"
   },
   {
-    "id": "828914",
-    "hash": "600fdd6aa74a7a015c546d7122408f87ae2a0b3f3bac09989a233baf1fcc0f38",
-    "translated_to": "ru"
-  },
-  {
     "id": "947872",
     "hash": "196ea564c5c3b5954b62192024c43712d74d0b30b4ddf9dc29f88aca80531bfb",
     "translated_to": "ru"
@@ -252,6 +247,36 @@
   {
     "id": "947900",
     "hash": "5be302ec6eafe8f22a39f4dc641723cea3a0faa2222cb771903b59fd4740af3d",
+    "translated_to": "ru"
+  },
+  {
+    "id": "948018",
+    "hash": "c47808146f48b434def3a5e4ba48b818d9d8cfe78217ebd2bb0f90dc48b2bf17",
+    "translated_to": "ru"
+  },
+  {
+    "id": "947984",
+    "hash": "c565ae83210787b6f7729a1951b3d8c44b8384688a38bdb4b9e3f641c64019a2",
+    "translated_to": "ru"
+  },
+  {
+    "id": "947869",
+    "hash": "88e592c9b3e02df7bc6d1dab567065c8c1b1b5b8e2b56943e0c6d8746f2506c4",
+    "translated_to": "ru"
+  },
+  {
+    "id": "947987",
+    "hash": "956c63c60fe93f1b7bde47be093a0680f1c3e1c93e367a9c15cde676acb24892",
+    "translated_to": "ru"
+  },
+  {
+    "id": "947935",
+    "hash": "09d7efe12eca32e9950fe5699bc063a5c2f993715b0316a49851f525983cd82f",
+    "translated_to": "ru"
+  },
+  {
+    "id": "828914",
+    "hash": "600fdd6aa74a7a015c546d7122408f87ae2a0b3f3bac09989a233baf1fcc0f38",
     "translated_to": "ru"
   }
 ]
