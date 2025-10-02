@@ -1,6 +1,6 @@
-name: Parse & Post Articles
+name: Parse & Post (Thaiger)
 concurrency:
-  group: post-articles
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
   
 permissions:
@@ -17,16 +17,14 @@ on:
 env:
   POST_DELAY: 10
   BATCH_LIMIT: 15
+  TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+  TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
 
 jobs:
   build-and-publish:
-    name: Parse and Publish
+    name: Parse and Publish (Thaiger)
     runs-on: ubuntu-latest
     
-    env:
-      TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
-      TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -36,44 +34,27 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
       - name: Install requirements
         run: |
-          if [ -f requirements-parser.txt ]; then
-            pip install -r requirements-parser.txt
-          fi
-          if [ -f requirements-poster.txt ]; then
-            pip install -r requirements-poster.txt
-          fi
+          if [ -f requirements-parser.txt ]; then pip install -r requirements-parser.txt; fi
+          if [ -f requirements-poster.txt ]; then pip install -r requirements-poster.txt; fi
 
       - name: Run parser
         id: parse_step
         run: |
-          echo "→ STARTING PARSER RUN"
-          # Убедитесь, что имя файла (например, main.py) верное
           python3 main.py \
+            --base-url "https://www.thethaiger.com" \
+            --slug "national" \
             --lang 'ru' \
-            --limit ${{ env.BATCH_LIMIT_PARSE || 15 }} \
+            --limit 15 \
             --posted-state-file articles/posted.json | tee parser_output.txt
-          echo "→ PARSER RUN COMPLETE"
           
-          # Извлекаем статус для следующего шага
           NEW_ARTICLES_STATUS=$(grep "NEW_ARTICLES_STATUS:" parser_output.txt | cut -d: -f2 | tr -d '[:space:]')
           echo "new_articles_found=$NEW_ARTICLES_STATUS" >> $GITHUB_OUTPUT
-          echo "Extracted new_articles_found status: '$NEW_ARTICLES_STATUS'"
 
       - name: Run poster
         if: steps.parse_step.outputs.new_articles_found == 'true'
         run: |
-          echo "→ Running poster..."
-          # Постер работает с папкой articles, которую создал парсер на предыдущем шаге
           python3 poster.py \
             --parsed-dir articles \
             --state-file articles/posted.json \
@@ -83,8 +64,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Добавляем файлы для коммита, только если они существуют
+          
           if [ -f "articles/posted.json" ]; then
             git add articles/posted.json
           fi
