@@ -613,5 +613,25 @@
     "id": "949078",
     "hash": "a06bcd3038631265df7471dd2b12e4870143e82b271201d4a757f72951709b42",
     "translated_to": "ru"
+  },
+  {
+    "id": "949124",
+    "hash": "972adbdb8a3b1e65c2c2cd0a99027c838314eace75d03346a5df6cb8bea5586d",
+    "translated_to": "ru"
+  },
+  {
+    "id": "949110",
+    "hash": "2091f581e5107b54dff8b19c36658e9e0f7cb3cf2ebdc9435540cf42fd62c218",
+    "translated_to": "ru"
+  },
+  {
+    "id": "949073",
+    "hash": "6efea2da78f883f0f926c7267fa27a3cdd626292d98e5da50093cb865475b1a8",
+    "translated_to": "ru"
+  },
+  {
+    "id": "949094",
+    "hash": "924714b7271554e379cc299e0cbad7b4bc7b59ad8f409b6c683b50a1bdc34794",
+    "translated_to": "ru"
   }
 ]
