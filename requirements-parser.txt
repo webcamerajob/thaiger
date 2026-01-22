@@ -2,3 +2,5 @@ requests
 beautifulsoup4
 curl_cffi
 translators
+cloudscraper
+psutil
