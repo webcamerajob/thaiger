@@ -46,7 +46,7 @@ jobs:
             --base-url "https://www.thethaiger.com" \
             --slug "national" \
             --lang 'ru' \
-            --limit 15 \
+            --limit $BATCH_LIMIT \
             --posted-state-file articles/posted.json | tee parser_output.txt
           
           NEW_ARTICLES_STATUS=$(grep "NEW_ARTICLES_STATUS:" parser_output.txt | cut -d: -f2 | tr -d '[:space:]')
