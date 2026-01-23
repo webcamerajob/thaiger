@@ -144,7 +144,7 @@ def chunk_text_by_limit(text: str, limit: int) -> List[str]:
 
 def translate_text(text: str, to_lang: str = "ru") -> Optional[str]:
     if not text: return ""
-    providers = ["yandex", "google", "bing"]
+    providers = ["google", "bing", "yandex"]
     normalized_text = normalize_text(text)
     
     for provider in providers:
@@ -377,3 +377,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
