@@ -277,7 +277,7 @@ def main():
         
         # --- ВАЖНОЕ ИЗМЕНЕНИЕ ---
         # Запрашиваем 60 постов, чтобы "пробить" слой старых статей
-        posts = fetch_posts(args.base_url, cid, 15)
+        posts = fetch_posts(args.base_url, cid, 60)
         
         posted = load_posted_ids(Path(args.posted_state_file))
         stop = load_stopwords(Path(args.stopwords_file))
@@ -321,5 +321,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
