@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Set
 import fcntl
 
 from bs4 import BeautifulSoup
-# ИСПОЛЬЗУЕМ БЫСТРЫЙ ДВИЖОК (CURL_CFFI)
+# ИСПОЛЬЗУЕМ БЫСТРЫЙ ДВИЖОК
 from curl_cffi import requests as cffi_requests, CurlHttpVersion
 import translators as ts
 
@@ -99,34 +99,29 @@ def load_stopwords(file_path: Optional[Path]) -> List[str]:
             return words
     except Exception: return []
 
-# --- УМНАЯ ФИЛЬТРАЦИЯ КАРТИНОК (Чтобы не было мусора) ---
+# --- УМНАЯ ФИЛЬТРАЦИЯ КАРТИНОК ---
 def extract_img_url(img_tag: Any) -> Optional[str]:
-    # 1. Сначала ищем в srcset (там лежат оригиналы высокого качества)
+    # 1. Srcset (качество)
     srcset = img_tag.get("srcset") or img_tag.get("data-srcset")
     if srcset:
         try:
             parts = srcset.split(',')
             links = []
             for p in parts:
-                # Ищем ссылку и ширину (например: image.jpg 1024w)
                 match = re.search(r'(\S+)\s+(\d+)w', p.strip())
                 if match: links.append((int(match.group(2)), match.group(1)))
             if links: 
-                # Сортируем по размеру (берем самое большое)
                 return sorted(links, key=lambda x: x[0], reverse=True)[0][1]
         except Exception: pass
     
-    # 2. Если srcset нет, перебираем обычные атрибуты по приоритету
+    # 2. Обычные атрибуты
     attrs = ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]
     for attr in attrs:
         if val := img_tag.get(attr):
-            # Чистим URL от параметров (например ?resize=300,300)
             clean_val = val.split()[0].split(',')[0].split('?')[0]
-            
-            # 3. ФИЛЬТР МУСОРА: Если в ссылке есть эти слова — пропускаем
+            # Фильтр по имени файла
             if any(x in clean_val.lower() for x in ["gif", "logo", "banner", "mastercard", "aba-", "payway", "icon", "button", "author"]): 
                 continue
-            
             return clean_val
     return None
 
@@ -206,7 +201,7 @@ def save_image(src_url: str, folder: Path) -> Optional[str]:
 # --- ОБРАБОТКА СТАТЬИ ---
 
 def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]) -> Optional[Dict[str, Any]]:
-    time.sleep(6) # Анти-бан пауза
+    time.sleep(6) # Анти-бан
 
     aid = str(post["id"])
     slug = post["slug"]
@@ -220,7 +215,6 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     raw_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
     orig_title = sanitize_text(raw_title)
     
-    # ПРОВЕРКА СТОП-СЛОВ (Как вы просили)
     if stopwords:
         title_lower = orig_title.lower()
         for phrase in stopwords:
@@ -248,9 +242,19 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     title = sanitize_text(title)
 
     soup = BeautifulSoup(page_html, "html.parser")
-    # Чистка HTML мусора
+
+    # -----------------------------------------------------------
+    # 🔥 ФИКС: УДАЛЯЕМ БЛОК "RELATED ARTICLES" (post-widget-thumbnail)
+    # Это удаляет HTML-код с мусорными картинками ДО их поиска
+    # -----------------------------------------------------------
+    for related in soup.find_all("div", class_="post-widget-thumbnail"):
+        related.decompose()
+
+    # Чистка остального мусора
     for junk in soup.find_all(["span", "div", "script", "style", "iframe"]):
-        if junk.get("data-mce-type") or "mce_SELRES" in str(junk.get("class", "")):
+        # Если класс содержит widget, related или mce_SELRES - удаляем
+        cls_str = str(junk.get("class", ""))
+        if junk.get("data-mce-type") or "mce_SELRES" in cls_str or "widget" in cls_str:
             junk.decompose()
             
     content_div = soup.find("div", class_="entry-content")
@@ -267,7 +271,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     img_dir = art_dir / "images"
     srcs = set()
     
-    # СБОР КАРТИНОК (С фильтрацией мусора)
+    # Сбор картинок (теперь без related)
     if content_div:
         for img in content_div.find_all("img"):
             if u := extract_img_url(img): srcs.add(u)
@@ -279,7 +283,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
             for fut in as_completed(futures):
                 if path := fut.result(): images.append(path)
 
-    # Fallback: Если в тексте нет нормальных картинок, берем Featured (обычно она хорошая)
+    # Fallback
     if not images and "_embedded" in post and (media := post["_embedded"].get("wp:featuredmedia")):
         if isinstance(media, list) and (u := media[0].get("source_url")):
             if path := save_image(u, img_dir): images.append(path)
@@ -337,11 +341,10 @@ def main():
 
     try:
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        # Очистка старых папок
+        # Очистка
         cleanup_old_articles(Path(args.posted_state_file), OUTPUT_DIR)
 
         cid = fetch_category_id(args.base_url, args.slug)
-        # РАЦИОНАЛЬНОСТЬ: Limit + 5 (не * 3)
         fetch_limit = min(args.limit + 5, 20)
         posts = fetch_posts(args.base_url, cid, per_page=fetch_limit)
         
@@ -353,7 +356,7 @@ def main():
         processed = []
         count = 0
         for post in posts:
-            if count >= args.limit: break # РАЦИОНАЛЬНЫЙ ТОРМОЗ
+            if count >= args.limit: break
             if str(post["id"]) not in posted_ids:
                 if meta := parse_and_save(post, args.lang, stopwords):
                     processed.append(meta)
