@@ -13,10 +13,10 @@ from typing import Any, Dict, List, Optional, Set
 import fcntl
 
 from bs4 import BeautifulSoup
-# ИСПОЛЬЗУЕМ БЫСТРЫЙ ДВИЖОК
 from curl_cffi import requests as cffi_requests, CurlHttpVersion
 import translators as ts
 
+# --- ИЗМЕНЕНИЕ: Включаем уровень DEBUG для подробностей ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 OUTPUT_DIR = Path("articles")
@@ -25,7 +25,6 @@ MAX_RETRIES = 3
 BASE_DELAY = 1.0
 MAX_POSTED_RECORDS = 100 
 
-# --- НАСТРОЙКА (HTTP/2 + Safari) ---
 SCRAPER = cffi_requests.Session(
     impersonate="safari15_5",
     http_version=CurlHttpVersion.V2_0
@@ -40,34 +39,24 @@ SCRAPER.headers = {
 SCRAPER_TIMEOUT = 30 
 BAD_RE = re.compile(r"[\u200b-\u200f\uFEFF\u200E\u00A0]")
 
-# --- ОЧИСТКА СТАРЫХ ПАПОК ---
+# --- ОЧИСТКА ---
 def cleanup_old_articles(posted_ids_path: Path, articles_dir: Path):
     if not posted_ids_path.is_file() or not articles_dir.is_dir(): return
-    logging.info("🧹 Проверка на очистку старых папок...")
     try:
         with open(posted_ids_path, 'r', encoding='utf-8') as f:
             all_posted = json.load(f)
             ids_to_keep = set(str(x) for x in all_posted[-MAX_POSTED_RECORDS:])
-        
-        cleaned_count = 0
-        for article_folder in articles_dir.iterdir():
-            if article_folder.is_dir():
-                parts = article_folder.name.split('_', 1)
-                if parts and parts[0].isdigit():
-                    dir_id = parts[0]
-                    if dir_id not in ids_to_keep:
-                        shutil.rmtree(article_folder)
-                        cleaned_count += 1
-        if cleaned_count > 0:
-            logging.info(f"🧹 Удалено {cleaned_count} старых папок.")
-    except Exception as e:
-        logging.error(f"Ошибка очистки: {e}")
+        cleaned = 0
+        for f in articles_dir.iterdir():
+            if f.is_dir() and f.name.split('_', 1)[0].isdigit():
+                if f.name.split('_', 1)[0] not in ids_to_keep:
+                    shutil.rmtree(f); cleaned += 1
+        if cleaned: logging.info(f"🧹 Удалено {cleaned} старых папок.")
+    except Exception: pass
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-
+# --- ВСПОМОГАТЕЛЬНЫЕ ---
 def normalize_text(text: str) -> str:
-    replacements = {'–': '-', '—': '-', '“': '"', '”': '"', '‘': "'", '’': "'"}
-    for s, v in replacements.items(): text = text.replace(s, v)
+    for s, v in {'–': '-', '—': '-', '“': '"', '”': '"', '‘': "'", '’': "'"}.items(): text = text.replace(s, v)
     return text
 
 def sanitize_text(text: str) -> str:
@@ -75,33 +64,27 @@ def sanitize_text(text: str) -> str:
     text = html.unescape(text)
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'mce_SELRES_[^ ]+', '', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
-    return text.strip()
+    return re.sub(r'\n{3,}', '\n\n', text).strip()
 
 def load_posted_ids(state_file_path: Path) -> Set[str]:
     try:
         if state_file_path.exists():
             with open(state_file_path, 'r', encoding='utf-8') as f:
                 fcntl.flock(f, fcntl.LOCK_SH)
-                data = json.load(f)
-                return {str(item) for item in data}
+                return {str(item) for item in json.load(f)}
         return set()
     except Exception: return set()
 
 def load_stopwords(file_path: Optional[Path]) -> List[str]:
-    if not file_path or not file_path.exists(): 
-        logging.info("Файл стоп-слов не найден.")
-        return []
+    if not file_path or not file_path.exists(): return []
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            words = [line.strip().lower() for line in f if line.strip()]
-            logging.info(f"Загружено {len(words)} стоп-слов.")
-            return words
+            return [line.strip().lower() for line in f if line.strip()]
     except Exception: return []
 
-# --- УМНАЯ ФИЛЬТРАЦИЯ КАРТИНОК ---
+# --- ОТЛАДОЧНАЯ ФУНКЦИЯ КАРТИНОК ---
 def extract_img_url(img_tag: Any) -> Optional[str]:
-    # 1. Srcset (качество)
+    # 1. Srcset
     srcset = img_tag.get("srcset") or img_tag.get("data-srcset")
     if srcset:
         try:
@@ -110,225 +93,170 @@ def extract_img_url(img_tag: Any) -> Optional[str]:
             for p in parts:
                 match = re.search(r'(\S+)\s+(\d+)w', p.strip())
                 if match: links.append((int(match.group(2)), match.group(1)))
-            if links: 
-                return sorted(links, key=lambda x: x[0], reverse=True)[0][1]
+            if links: return sorted(links, key=lambda x: x[0], reverse=True)[0][1]
         except Exception: pass
     
-    # 2. Обычные атрибуты
-    attrs = ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]
-    for attr in attrs:
+    # 2. Attributes
+    for attr in ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]:
         if val := img_tag.get(attr):
             clean_val = val.split()[0].split(',')[0].split('?')[0]
-            # Фильтр по имени файла
-            if any(x in clean_val.lower() for x in ["gif", "logo", "banner", "mastercard", "aba-", "payway", "icon", "button", "author"]): 
-                continue
+            # ЛОГ ОТКАЗА
+            for bad in ["gif", "logo", "banner", "mastercard", "aba-", "payway", "icon", "button", "author"]:
+                if bad in clean_val.lower():
+                    # logging.info(f"   🗑️ Картинка отброшена (фильтр '{bad}'): {clean_val}") 
+                    return None
             return clean_val
     return None
 
-# --- ЛОГИКА ПЕРЕВОДА ---
-
+# --- ПЕРЕВОД ---
 PROVIDER_LIMITS = {"google": 4800, "bing": 4500, "yandex": 4000}
-
-def chunk_text_by_limit(text: str, limit: int) -> List[str]:
-    chunks = []
+def chunk_text(text, limit):
+    c = []
     while text:
-        if len(text) <= limit:
-            chunks.append(text); break
-        split_pos = text.rfind('\n\n', 0, limit)
-        if split_pos == -1: split_pos = text.rfind('. ', 0, limit)
-        if split_pos == -1: split_pos = limit
-        chunk_end = max(1, split_pos + (2 if text[split_pos:split_pos+2] == '\n\n' else 1))
-        chunks.append(text[:chunk_end])
-        text = text[chunk_end:].lstrip()
-    return chunks
+        if len(text)<=limit: c.append(text); break
+        sp = text.rfind('\n\n',0,limit)
+        if sp==-1: sp=text.rfind('. ',0,limit)
+        if sp==-1: sp=limit
+        end=max(1,sp+(2 if text[sp:sp+2]=='\n\n' else 1))
+        c.append(text[:end]); text=text[end:].lstrip()
+    return c
 
 def translate_text(text: str, to_lang: str = "ru") -> Optional[str]:
     if not text: return ""
-    providers = ["google", "bing", "yandex"]
-    normalized_text = normalize_text(text)
-    
-    for provider in providers:
-        limit = PROVIDER_LIMITS.get(provider, 3000)
+    norm = normalize_text(text)
+    for p in ["yandex", "google", "bing"]:
         try:
-            chunks = chunk_text_by_limit(normalized_text, limit)
-            translated_chunks = []
-            for i, chunk in enumerate(chunks):
-                if i > 0: time.sleep(0.5)
-                res = ts.translate_text(
-                    chunk, translator=provider, from_language="en", to_language=to_lang, timeout=45
-                )
-                if res: translated_chunks.append(res)
-                else: raise ValueError("Empty chunk")
-            return "".join(translated_chunks)
-        except Exception as e:
-            if "resolve" in str(e).lower() or "name" in str(e).lower(): break
-            continue
+            res = []
+            for ch in chunk_text(norm, PROVIDER_LIMITS.get(p, 3000)):
+                time.sleep(0.5)
+                res.append(ts.translate_text(ch, translator=p, from_language="en", to_language=to_lang, timeout=45))
+            return "".join(res)
+        except Exception: continue
     return None
 
-# --- РАБОТА С САЙТОМ ---
-
-def fetch_category_id(base_url: str, slug: str) -> int:
-    logging.info(f"Fetching category ID for {slug}...")
-    r = SCRAPER.get(f"{base_url}/wp-json/wp/v2/categories?slug={slug}", timeout=SCRAPER_TIMEOUT)
-    r.raise_for_status()
-    data = r.json()
-    if not data: raise RuntimeError(f"Category '{slug}' not found")
+# --- ЗАПРОСЫ ---
+def fetch_cat_id(url, slug):
+    r = SCRAPER.get(f"{url}/wp-json/wp/v2/categories?slug={slug}", timeout=SCRAPER_TIMEOUT)
+    r.raise_for_status(); data=r.json()
+    if not data: raise RuntimeError("Cat not found")
     return data[0]["id"]
 
-def fetch_posts(base_url: str, cat_id: int, per_page: int = 10) -> List[Dict[str, Any]]:
+def fetch_posts(url, cid, limit):
     time.sleep(2)
-    endpoint = f"{base_url}/wp-json/wp/v2/posts?categories={cat_id}&per_page={per_page}&_embed"
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            r = SCRAPER.get(endpoint, timeout=SCRAPER_TIMEOUT)
-            if r.status_code == 429: time.sleep(20); continue
-            r.raise_for_status()
-            return r.json()
-        except Exception: time.sleep(BASE_DELAY * attempt)
-    return []
-
-def save_image(src_url: str, folder: Path) -> Optional[str]:
-    folder.mkdir(parents=True, exist_ok=True)
-    fn = src_url.rsplit('/', 1)[-1].split('?', 1)[0]
-    dest = folder / fn
     try:
-        r = SCRAPER.get(src_url, timeout=SCRAPER_TIMEOUT)
+        r = SCRAPER.get(f"{url}/wp-json/wp/v2/posts?categories={cid}&per_page={limit}&_embed", timeout=SCRAPER_TIMEOUT)
+        if r.status_code==429: time.sleep(20)
         r.raise_for_status()
-        dest.write_bytes(r.content)
+        return r.json()
+    except Exception as e:
+        logging.error(f"Ошибка получения постов: {e}")
+        return []
+
+def save_image(url, folder):
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / url.rsplit('/',1)[-1].split('?',1)[0]
+    try:
+        dest.write_bytes(SCRAPER.get(url, timeout=SCRAPER_TIMEOUT).content)
         return str(dest)
     except Exception: return None
 
-# --- ОБРАБОТКА СТАТЬИ ---
-
-def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]) -> Optional[Dict[str, Any]]:
-    time.sleep(6) # Анти-бан
-
-    aid = str(post["id"])
-    slug = post["slug"]
-    link = post.get("link")
-    if not link: return None
-
-    art_dir = OUTPUT_DIR / f"{aid}_{slug}"
-    art_dir.mkdir(parents=True, exist_ok=True)
-    meta_path = art_dir / "meta.json"
-
-    raw_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
-    orig_title = sanitize_text(raw_title)
+# --- ПАРСИНГ ---
+def parse_and_save(post, lang, stopwords):
+    time.sleep(4)
+    aid, slug, link = str(post["id"]), post["slug"], post.get("link")
     
+    raw_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
+    title = sanitize_text(raw_title)
+
+    # 1. Проверка СТОП-СЛОВ
     if stopwords:
-        title_lower = orig_title.lower()
-        for phrase in stopwords:
-            if phrase in title_lower:
-                logging.info(f"🚫 Stopword '{phrase}' found in ID={aid}. Skipping.")
+        for ph in stopwords:
+            if ph in title.lower():
+                logging.info(f"🚫 ID={aid}: Стоп-слово '{ph}' в заголовке.")
                 return None
 
-    logging.info(f"Processing ID={aid}: {link}")
     try:
-        r = SCRAPER.get(link, timeout=SCRAPER_TIMEOUT)
-        r.raise_for_status()
-        page_html = r.text
-    except Exception as e:
-        logging.error(f"Fetch error ID={aid}: {e}"); return None
+        html_txt = SCRAPER.get(link, timeout=SCRAPER_TIMEOUT).text
+    except Exception: return None
 
-    current_hash = hashlib.sha256(page_html.encode()).hexdigest()
+    # 2. Проверка ИЗМЕНЕНИЙ (Хэш)
+    meta_path = OUTPUT_DIR / f"{aid}_{slug}" / "meta.json"
+    curr_hash = hashlib.sha256(html_txt.encode()).hexdigest()
     if meta_path.exists():
         try:
-            existing_meta = json.loads(meta_path.read_text(encoding="utf-8"))
-            if existing_meta.get("hash") == current_hash and existing_meta.get("translated_to", "") == translate_to:
-                return existing_meta
-        except Exception: pass
+            m = json.loads(meta_path.read_text(encoding="utf-8"))
+            if m.get("hash") == curr_hash and m.get("translated_to", "") == lang:
+                logging.info(f"⏭️ ID={aid}: Статья не изменилась. Пропуск.")
+                return m
+        except: pass
 
-    title = translate_text(orig_title, translate_to) if translate_to else orig_title
-    title = sanitize_text(title)
+    logging.info(f"Processing ID={aid}: {title[:30]}...")
 
-    soup = BeautifulSoup(page_html, "html.parser")
+    soup = BeautifulSoup(html_txt, "html.parser")
+    
+    # УДАЛЯЕМ МУСОР
+    for r in soup.find_all("div", class_="post-widget-thumbnail"): r.decompose()
+    for j in soup.find_all(["span", "div", "script", "style", "iframe"]):
+        if not hasattr(j, 'attrs') or j.attrs is None: continue
+        c = str(j.get("class", ""))
+        if j.get("data-mce-type") or "mce_SELRES" in c or "widget" in c: j.decompose()
 
-    # Удаляем блок "Related Articles"
-    for related in soup.find_all("div", class_="post-widget-thumbnail"):
-        related.decompose()
-
-    # Чистка остального мусора (С ФИКСОМ ОШИБКИ NoneType)
-    for junk in soup.find_all(["span", "div", "script", "style", "iframe"]):
-        # 🔥 ФИКС: Проверка, что у элемента есть атрибуты
-        if not hasattr(junk, 'attrs') or junk.attrs is None:
-            continue
-            
-        cls_str = str(junk.get("class", ""))
-        if junk.get("data-mce-type") or "mce_SELRES" in cls_str or "widget" in cls_str:
-            junk.decompose()
-            
-    content_div = soup.find("div", class_="entry-content")
+    # ТЕКСТ
     paras = []
-    if content_div:
-        for rel in content_div.find_all(["ul", "ol", "div"], class_=re.compile(r"rp4wp|related|ad-")): rel.decompose()
-        for p in content_div.find_all("p"):
-            p_text = sanitize_text(p.get_text(strip=True))
-            if p_text: paras.append(p_text)
+    if c_div := soup.find("div", class_="entry-content"):
+        for r in c_div.find_all(["ul", "ol", "div"], class_=re.compile(r"rp4wp|related|ad-")): r.decompose()
+        paras = [sanitize_text(p.get_text(strip=True)) for p in c_div.find_all("p")]
     
-    raw_text = "\n\n".join(paras)
-    raw_text = BAD_RE.sub("", raw_text)
-
-    img_dir = art_dir / "images"
+    # КАРТИНКИ
     srcs = set()
-    
-    # Сбор картинок
-    if content_div:
-        for img in content_div.find_all("img"):
+    if c_div:
+        for img in c_div.find_all("img"):
             if u := extract_img_url(img): srcs.add(u)
-
+    
     images = []
     if srcs:
-        with ThreadPoolExecutor(max_workers=5) as ex:
-            futures = {ex.submit(save_image, url, img_dir): url for url in list(srcs)[:10]}
-            for fut in as_completed(futures):
-                if path := fut.result(): images.append(path)
-
-    # Fallback
-    if not images and "_embedded" in post and (media := post["_embedded"].get("wp:featuredmedia")):
-        if isinstance(media, list) and (u := media[0].get("source_url")):
-            if path := save_image(u, img_dir): images.append(path)
-
-    if not images: return None
+        with ThreadPoolExecutor(5) as ex:
+            futs = {ex.submit(save_image, u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): u for u in list(srcs)[:10]}
+            for f in as_completed(futs):
+                if p:=f.result(): images.append(p)
     
-    (art_dir / "content.txt").write_text(raw_text, encoding="utf-8")
+    # FALLBACK НА FEATURED
+    if not images and "_embedded" in post and (m:=post["_embedded"].get("wp:featuredmedia")):
+        if isinstance(m, list) and (u:=m[0].get("source_url")):
+             if p:=save_image(u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): images.append(p)
+
+    # 3. Проверка НАЛИЧИЯ КАРТИНОК
+    if not images:
+        logging.warning(f"⚠️ ID={aid}: Все картинки отфильтрованы или отсутствуют. Пропуск статьи.")
+        return None
+
+    # ПЕРЕВОД И СОХРАНЕНИЕ
+    final_title = translate_text(title, lang) if lang else title
+    final_title = sanitize_text(final_title)
+    
+    art_dir = OUTPUT_DIR / f"{aid}_{slug}"
+    art_dir.mkdir(parents=True, exist_ok=True)
+    
+    raw_txt_clean = BAD_RE.sub("", "\n\n".join(paras))
+    (art_dir / "content.txt").write_text(raw_txt_clean, encoding="utf-8")
+    
     meta = {
         "id": aid, "slug": slug, "date": post.get("date"), "link": link,
-        "title": title, "text_file": "content.txt",
+        "title": final_title, "text_file": "content.txt",
         "images": sorted([Path(p).name for p in images]), "posted": False,
-        "hash": current_hash, "translated_to": ""
+        "hash": curr_hash, "translated_to": ""
     }
 
-    if translate_to:
-        trans_text = translate_text(raw_text, to_lang=translate_to)
-        if trans_text:
-            trans_text = sanitize_text(trans_text)
-            (art_dir / f"content.{translate_to}.txt").write_text(f"{title}\n\n{trans_text}", encoding="utf-8")
-            meta.update({"translated_to": translate_to, "text_file": f"content.{translate_to}.txt"})
+    if lang:
+        tr_text = translate_text(raw_txt_clean, lang)
+        if tr_text:
+            (art_dir / f"content.{lang}.txt").write_text(f"{final_title}\n\n{tr_text}", encoding="utf-8")
+            meta.update({"translated_to": lang, "text_file": f"content.{lang}.txt"})
 
-    with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump(meta, f, ensure_ascii=False, indent=2)
+    with open(meta_path, "w", encoding="utf-8") as f: json.dump(meta, f, ensure_ascii=False, indent=2)
     return meta
 
-# --- УПРАВЛЕНИЕ КАТАЛОГОМ ---
-
-def load_catalog() -> List[Dict[str, Any]]:
-    if not CATALOG_PATH.exists(): return []
-    try:
-        with open(CATALOG_PATH, "r", encoding="utf-8") as f:
-            fcntl.flock(f, fcntl.LOCK_SH)
-            return [item for item in json.load(f) if isinstance(item, dict) and "id" in item]
-    except Exception: return []
-
-def save_catalog(catalog: List[Dict[str, Any]]) -> None:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    minimal = [{"id": item["id"], "hash": item.get("hash", ""), "translated_to": item.get("translated_to", "")}
-               for item in catalog if isinstance(item, dict) and "id" in item]
-    try:
-        with open(CATALOG_PATH, "w", encoding="utf-8") as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
-            json.dump(minimal, f, ensure_ascii=False, indent=2)
-    except IOError: pass
-
+# --- MAIN ---
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
@@ -341,32 +269,44 @@ def main():
 
     try:
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        # Очистка
         cleanup_old_articles(Path(args.posted_state_file), OUTPUT_DIR)
+        
+        cid = fetch_cat_id(args.base_url, args.slug)
+        posts = fetch_posts(args.base_url, cid, min(args.limit+5, 20))
+        
+        posted = load_posted_ids(Path(args.posted_state_file))
+        stop = load_stopwords(Path(args.stopwords_file))
+        catalog = []
+        if CATALOG_PATH.exists():
+            with open(CATALOG_PATH, 'r') as f: catalog=json.load(f)
 
-        cid = fetch_category_id(args.base_url, args.slug)
-        fetch_limit = min(args.limit + 5, 20)
-        posts = fetch_posts(args.base_url, cid, per_page=fetch_limit)
-        
-        catalog = load_catalog()
-        posted_ids = load_posted_ids(Path(args.posted_state_file))
-        sw_file = Path(args.stopwords_file)
-        stopwords = load_stopwords(sw_file)
-        
         processed = []
         count = 0
-        for post in posts:
-            if count >= args.limit: break
-            if str(post["id"]) not in posted_ids:
-                if meta := parse_and_save(post, args.lang, stopwords):
-                    processed.append(meta)
-                    count += 1
         
+        logging.info(f"Найдено {len(posts)} постов в API.")
+        
+        for post in posts:
+            if count >= args.limit: 
+                logging.info("Достигнут лимит обработки."); break
+            
+            # ОТЛАДКА: ПОЧЕМУ ПРОПУСКАЕМ?
+            if str(post["id"]) in posted:
+                logging.info(f"⏭️ ID={post['id']} уже в posted.json. Пропуск.")
+                continue
+                
+            if meta := parse_and_save(post, args.lang, stop):
+                processed.append(meta)
+                count += 1
+            else:
+                # Если parse_and_save вернул None, логи уже написали почему (стоп-слово или нет картинок)
+                pass
+
         if processed:
             for m in processed:
                 catalog = [i for i in catalog if i.get("id") != m["id"]]
                 catalog.append(m)
-            save_catalog(catalog)
+            with open(CATALOG_PATH, "w", encoding="utf-8") as f:
+                json.dump(catalog, f, ensure_ascii=False, indent=2)
             print("NEW_ARTICLES_STATUS:true")
         else:
             print("NEW_ARTICLES_STATUS:false")
@@ -377,4 +317,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
