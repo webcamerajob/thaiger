@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Set
 import fcntl
 
 from bs4 import BeautifulSoup
-# ИСПОЛЬЗУЕМ МОЩНЫЙ CURL_CFFI ВМЕСТО CLOUDSCRAPER
+# ИСПОЛЬЗУЕМ CURL_CFFI
 from curl_cffi import requests as cffi_requests, CurlHttpVersion
 import translators as ts
 
@@ -23,7 +23,7 @@ OUTPUT_DIR = Path("articles")
 CATALOG_PATH = OUTPUT_DIR / "catalog.json"
 MAX_RETRIES = 3
 BASE_DELAY = 1.0
-MAX_POSTED_RECORDS = 100 # Для очистки старых папок
+MAX_POSTED_RECORDS = 100 
 
 # --- НАСТРОЙКА (HTTP/2 + Safari) ---
 SCRAPER = cffi_requests.Session(
@@ -40,20 +40,18 @@ SCRAPER.headers = {
 SCRAPER_TIMEOUT = 30 
 BAD_RE = re.compile(r"[\u200b-\u200f\uFEFF\u200E\u00A0]")
 
-# --- ОЧИСТКА СТАРЫХ ПАПОК (Твоя функция) ---
+# --- ОЧИСТКА СТАРЫХ ПАПОК ---
 def cleanup_old_articles(posted_ids_path: Path, articles_dir: Path):
     if not posted_ids_path.is_file() or not articles_dir.is_dir(): return
     logging.info("🧹 Проверка на очистку старых папок...")
     try:
         with open(posted_ids_path, 'r', encoding='utf-8') as f:
             all_posted = json.load(f)
-            # Оставляем только последние N ID
             ids_to_keep = set(str(x) for x in all_posted[-MAX_POSTED_RECORDS:])
         
         cleaned_count = 0
         for article_folder in articles_dir.iterdir():
             if article_folder.is_dir():
-                # Имя папки обычно "ID_slug"
                 parts = article_folder.name.split('_', 1)
                 if parts and parts[0].isdigit():
                     dir_id = parts[0]
@@ -91,17 +89,41 @@ def load_posted_ids(state_file_path: Path) -> Set[str]:
     except Exception: return set()
 
 def load_stopwords(file_path: Optional[Path]) -> List[str]:
-    if not file_path or not file_path.exists(): return []
+    if not file_path or not file_path.exists(): 
+        logging.info("Файл стоп-слов не найден.")
+        return []
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            return [line.strip().lower() for line in f if line.strip()]
+            words = [line.strip().lower() for line in f if line.strip()]
+            logging.info(f"Загружено {len(words)} стоп-слов.")
+            return words
     except Exception: return []
 
+# ✅ ВЕРНУЛ ФИЛЬТРАЦИЮ (Gif, Logo, Banner) и SRCSET
 def extract_img_url(img_tag: Any) -> Optional[str]:
-    # Простая логика (как ты хотел)
-    for attr in ("data-src", "data-lazy-src", "data-srcset", "srcset", "src"):
+    # 1. Сначала ищем в srcset (высокое качество)
+    srcset = img_tag.get("srcset") or img_tag.get("data-srcset")
+    if srcset:
+        try:
+            parts = srcset.split(',')
+            links = []
+            for p in parts:
+                match = re.search(r'(\S+)\s+(\d+)w', p.strip())
+                if match: links.append((int(match.group(2)), match.group(1)))
+            if links: 
+                # Сортируем по размеру (берем самое большое)
+                return sorted(links, key=lambda x: x[0], reverse=True)[0][1]
+        except Exception: pass
+    
+    # 2. Если нет, перебираем атрибуты
+    attrs = ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]
+    for attr in attrs:
         if val := img_tag.get(attr):
-            return val.split()[0].split(',')[0]
+            clean_val = val.split()[0].split(',')[0] # Убираем параметры ?resize=...
+            # 3. ФИЛЬТР МУСОРА (Важно для Thaiger)
+            if any(x in clean_val.lower() for x in ["gif", "logo", "banner", "mastercard", "aba-", "payway", "icon", "button"]): 
+                continue
+            return clean_val
     return None
 
 # --- ЛОГИКА ПЕРЕВОДА ---
@@ -115,7 +137,6 @@ def chunk_text_by_limit(text: str, limit: int) -> List[str]:
             chunks.append(text); break
         split_pos = text.rfind('\n\n', 0, limit)
         if split_pos == -1: split_pos = text.rfind('. ', 0, limit)
-        if split_pos == -1: split_pos = text.rfind(' ', 0, limit)
         if split_pos == -1: split_pos = limit
         chunk_end = max(1, split_pos + (2 if text[split_pos:split_pos+2] == '\n\n' else 1))
         chunks.append(text[:chunk_end])
@@ -124,7 +145,7 @@ def chunk_text_by_limit(text: str, limit: int) -> List[str]:
 
 def translate_text(text: str, to_lang: str = "ru") -> Optional[str]:
     if not text: return ""
-    providers = ["google", "bing", "yandex"]
+    providers = ["yandex", "google", "bing"]
     normalized_text = normalize_text(text)
     
     for provider in providers:
@@ -195,7 +216,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     raw_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
     orig_title = sanitize_text(raw_title)
     
-    # ПРОВЕРКА STOPWORDS
+    # ✅ СОХРАНЕНО: Проверка стоп-слов
     if stopwords:
         title_lower = orig_title.lower()
         for phrase in stopwords:
@@ -216,7 +237,6 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
         try:
             existing_meta = json.loads(meta_path.read_text(encoding="utf-8"))
             if existing_meta.get("hash") == current_hash and existing_meta.get("translated_to", "") == translate_to:
-                # logging.info(f"Skipping unchanged ID={aid}") # Чтобы не спамить лог
                 return existing_meta
         except Exception: pass
 
@@ -224,7 +244,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     title = sanitize_text(title)
 
     soup = BeautifulSoup(page_html, "html.parser")
-    # Чистка мусора
+    # Чистка мусора (скрипты, стили)
     for junk in soup.find_all(["span", "div", "script", "style", "iframe"]):
         if junk.get("data-mce-type") or "mce_SELRES" in str(junk.get("class", "")):
             junk.decompose()
@@ -243,7 +263,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     img_dir = art_dir / "images"
     srcs = set()
     
-    # Сбор картинок
+    # Сбор картинок (с фильтрацией)
     if content_div:
         for img in content_div.find_all("img"):
             if u := extract_img_url(img): srcs.add(u)
@@ -307,7 +327,6 @@ def main():
     parser.add_argument("-n", "--limit", type=int, default=10)
     parser.add_argument("-l", "--lang", default="ru")
     parser.add_argument("--posted-state-file", default="articles/posted.json")
-    # Добавляем аргумент, но по умолчанию берем stopwords.txt
     parser.add_argument("--stopwords-file", default="stopwords.txt")
     args = parser.parse_args()
 
@@ -317,7 +336,7 @@ def main():
         cleanup_old_articles(Path(args.posted_state_file), OUTPUT_DIR)
 
         cid = fetch_category_id(args.base_url, args.slug)
-        # Рациональный запрос: Limit + 5
+        # ✅ РАЦИОНАЛЬНО: Limit + 5
         fetch_limit = min(args.limit + 5, 20)
         posts = fetch_posts(args.base_url, cid, per_page=fetch_limit)
         
@@ -329,7 +348,7 @@ def main():
         processed = []
         count = 0
         for post in posts:
-            if count >= args.limit: break # Рациональный тормоз
+            if count >= args.limit: break # ✅ ТОРМОЗ ЦИКЛА
             if str(post["id"]) not in posted_ids:
                 if meta := parse_and_save(post, args.lang, stopwords):
                     processed.append(meta)
