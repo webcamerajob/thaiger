@@ -9913,5 +9913,141 @@
     "posted": false,
     "hash": "6bdba84e87d30f3470f031e85af2b9c0b0c099925cfe0feca0f6d2affb9c6ecf",
     "translated_to": "ru"
+  },
+  {
+    "id": "977715",
+    "slug": "german-man-wanted-for-stealing-2000-baht-from-phuket-spa",
+    "date": "2026-01-21T13:53:25",
+    "link": "https://thethaiger.com/news/phuket/german-man-wanted-for-stealing-2000-baht-from-phuket-spa",
+    "title": "Немец объявлен в розыск за кражу 2000 бат из спа-центра Пхукета",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-21T134731.215.jpg",
+      "Thaiger-Cover-Picture-2026-01-21T134824.333.jpg",
+      "Thaiger-Cover-Picture-2026-01-21T134938.604.jpg"
+    ],
+    "posted": false,
+    "hash": "541ef31b3579376c5194f52c3586f759006cf59454ede71757abe72d8cc3657f",
+    "translated_to": "ru"
+  },
+  {
+    "id": "977680",
+    "slug": "russian-fraud-fugitive-on-interpol-list-arrested-in-phuket",
+    "date": "2026-01-21T13:15:34",
+    "link": "https://thethaiger.com/news/phuket/russian-fraud-fugitive-on-interpol-list-arrested-in-phuket",
+    "title": "Российский мошенник, скрывающийся от правосудия в списке Интерпола, арестован на Пхукете",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-21T130634.777.jpg",
+      "Thaiger-Cover-Picture-2026-01-21T130653.920.jpg"
+    ],
+    "posted": false,
+    "hash": "552f98292aae630989184c76226902df7db6ba9a958a3637bbce2a5558c350b6",
+    "translated_to": "ru"
+  },
+  {
+    "id": "977663",
+    "slug": "unidentified-man-found-dead-bang-lamung-ditch",
+    "date": "2026-01-21T13:13:31",
+    "link": "https://thethaiger.com/news/national/unidentified-man-found-dead-bang-lamung-ditch",
+    "title": "Неопознанное тело в нижнем белье найдено в канаве в Чонбури",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-24.jpg"
+    ],
+    "posted": false,
+    "hash": "f27521ce2fc11e437ec4ad6f83a05cff0aec909d4c9ff165a52e1a43d1216232",
+    "translated_to": "ru"
+  },
+  {
+    "id": "977654",
+    "slug": "japanese-tourist-quits-bangkok-trip-after-airport-taxi-rip-off",
+    "date": "2026-01-21T11:33:11",
+    "link": "https://thethaiger.com/news/bangkok/japanese-tourist-quits-bangkok-trip-after-airport-taxi-rip-off",
+    "title": "Японский турист отказался от поездки в Бангкок после ограбления такси в аэропорту",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-21T111214.275.jpg",
+      "Thaiger-Cover-Picture-2026-01-21T111250.401.jpg",
+      "Thaiger-Cover-Picture-2026-01-21T111627.551.jpg"
+    ],
+    "posted": false,
+    "hash": "df1eb6c8eb09b5ac57a807c57460fb6285d90abc56d22f908ff8fe6b1e427503",
+    "translated_to": "ru"
+  },
+  {
+    "id": "977646",
+    "slug": "thailand-host-fifa-womens-series-2026-ratchaburi",
+    "date": "2026-01-21T11:20:18",
+    "link": "https://thethaiger.com/news/national/thailand-host-fifa-womens-series-2026-ratchaburi",
+    "title": "Чемпионат Таиланда по футболу среди женщин 2026 года пройдет в Ратчабури",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-23.jpg"
+    ],
+    "posted": false,
+    "hash": "0ca254f0597edd74b804d934aa794c3b8797afd459b12d44be867034fcaf2a97",
+    "translated_to": "ru"
+  },
+  {
+    "id": "977634",
+    "slug": "thai-driver-escapes-serious-injury-as-suv-hangs-off-parking-building",
+    "date": "2026-01-21T10:46:25",
+    "link": "https://thethaiger.com/news/bangkok/thai-driver-escapes-serious-injury-as-suv-hangs-off-parking-building",
+    "title": "Тайский водитель избежал серьезных травм, когда внедорожник оторвался от здания парковки",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-21T103627.173.jpg",
+      "Thaiger-Cover-Picture-2026-01-21T103651.758.jpg",
+      "Thaiger-Cover-Picture-2026-01-21T103724.823.jpg"
+    ],
+    "posted": false,
+    "hash": "5501e3c43256252a226b980cbc2998b960b9e8ef0b634ee2e052145bb836dcbf",
+    "translated_to": "ru"
+  },
+  {
+    "id": "977629",
+    "slug": "fake-tax-refund-email-scam-thailand",
+    "date": "2026-01-21T10:26:43",
+    "link": "https://thethaiger.com/news/national/fake-tax-refund-email-scam-thailand",
+    "title": "CCIB предупреждает общественность о мошенничестве с возвратом налогов по электронной почте в Таиланде",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-22.jpg"
+    ],
+    "posted": false,
+    "hash": "bcc8d7172be429a1abc72ed421a1d3991e70ffe5cd8d8660db6c501cdcb8697f",
+    "translated_to": "ru"
+  },
+  {
+    "id": "977607",
+    "slug": "hua-hin-hotel-receptionist-boyfriend-witnesses-murder-via-video-call",
+    "date": "2026-01-21T09:59:05",
+    "link": "https://thethaiger.com/news/national/hua-hin-hotel-receptionist-boyfriend-witnesses-murder-via-video-call",
+    "title": "Парень администраторши отеля в Хуахине стал свидетелем убийства по видеосвязи",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-21T094702.968.jpg",
+      "Thaiger-Cover-Picture-2026-01-21T094744.731.jpg",
+      "Thaiger-Cover-Picture-2026-01-21T094949.777.jpg"
+    ],
+    "posted": false,
+    "hash": "042f85ec41402edee228e79f30c5baaaef418272f174f50450b4d21a0e1b8dff",
+    "translated_to": "ru"
+  },
+  {
+    "id": "977609",
+    "slug": "black-panther-asiatic-black-bear-kaeng-krachan",
+    "date": "2026-01-21T09:51:06",
+    "link": "https://thethaiger.com/news/national/black-panther-asiatic-black-bear-kaeng-krachan",
+    "title": "Дикая природа в Каенг-Крачане процветает, здесь можно увидеть пантер и медведей",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-20.jpg",
+      "สำเนาของ-23-34-21.jpg"
+    ],
+    "posted": false,
+    "hash": "eac02a886fc22dc03c93e96b9f03b46248f37d349038519b016d33ef764c6de6",
+    "translated_to": "ru"
   }
 ]
