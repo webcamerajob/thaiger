@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Set
 import fcntl
 
 from bs4 import BeautifulSoup
+# ИСПОЛЬЗУЕМ БЫСТРЫЙ ДВИЖОК
 from curl_cffi import requests as cffi_requests, CurlHttpVersion
 import translators as ts
 
@@ -23,7 +24,7 @@ OUTPUT_DIR = Path("articles")
 CATALOG_PATH = OUTPUT_DIR / "catalog.json"
 MAX_RETRIES = 3
 BASE_DELAY = 1.0
-MAX_POSTED_RECORDS = 100 
+MAX_POSTED_RECORDS = 30
 
 SCRAPER = cffi_requests.Session(
     impersonate="safari15_5",
@@ -82,7 +83,7 @@ def load_stopwords(file_path: Optional[Path]) -> List[str]:
             return [line.strip().lower() for line in f if line.strip()]
     except Exception: return []
 
-# --- ОТЛАДОЧНАЯ ФУНКЦИЯ КАРТИНОК ---
+# --- УМНЫЙ ПОИСК КАРТИНОК ---
 def extract_img_url(img_tag: Any) -> Optional[str]:
     # 1. Srcset
     srcset = img_tag.get("srcset") or img_tag.get("data-srcset")
@@ -100,7 +101,7 @@ def extract_img_url(img_tag: Any) -> Optional[str]:
     for attr in ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]:
         if val := img_tag.get(attr):
             clean_val = val.split()[0].split(',')[0].split('?')[0]
-            # ЛОГ ОТКАЗА
+            # ЛОГ ОТКАЗА (ФИЛЬТР МУСОРА)
             for bad in ["gif", "logo", "banner", "mastercard", "aba-", "payway", "icon", "button", "author"]:
                 if bad in clean_val.lower():
                     # logging.info(f"   🗑️ Картинка отброшена (фильтр '{bad}'): {clean_val}") 
@@ -142,6 +143,7 @@ def fetch_cat_id(url, slug):
     return data[0]["id"]
 
 def fetch_posts(url, cid, limit):
+    logging.info(f"Запрашиваем {limit} последних статей из API...") # Лог
     time.sleep(2)
     try:
         r = SCRAPER.get(f"{url}/wp-json/wp/v2/posts?categories={cid}&per_page={limit}&_embed", timeout=SCRAPER_TIMEOUT)
@@ -194,10 +196,10 @@ def parse_and_save(post, lang, stopwords):
 
     soup = BeautifulSoup(html_txt, "html.parser")
     
-    # УДАЛЯЕМ МУСОР
+    # УДАЛЯЕМ МУСОР (включая Related)
     for r in soup.find_all("div", class_="post-widget-thumbnail"): r.decompose()
     for j in soup.find_all(["span", "div", "script", "style", "iframe"]):
-        if not hasattr(j, 'attrs') or j.attrs is None: continue
+        if not hasattr(j, 'attrs') or j.attrs is None: continue # ФИКС ОТ noneType
         c = str(j.get("class", ""))
         if j.get("data-mce-type") or "mce_SELRES" in c or "widget" in c: j.decompose()
 
@@ -272,7 +274,10 @@ def main():
         cleanup_old_articles(Path(args.posted_state_file), OUTPUT_DIR)
         
         cid = fetch_cat_id(args.base_url, args.slug)
-        posts = fetch_posts(args.base_url, cid, min(args.limit+5, 20))
+        
+        # --- ВАЖНОЕ ИЗМЕНЕНИЕ ---
+        # Запрашиваем 60 постов, чтобы "пробить" слой старых статей
+        posts = fetch_posts(args.base_url, cid, 60)
         
         posted = load_posted_ids(Path(args.posted_state_file))
         stop = load_stopwords(Path(args.stopwords_file))
@@ -283,23 +288,22 @@ def main():
         processed = []
         count = 0
         
-        logging.info(f"Найдено {len(posts)} постов в API.")
+        logging.info(f"Найдено {len(posts)} постов в API (будем искать новые среди них).")
         
         for post in posts:
             if count >= args.limit: 
-                logging.info("Достигнут лимит обработки."); break
+                logging.info(f"Достигнут лимит обработки ({args.limit}). Остановка."); break
             
-            # ОТЛАДКА: ПОЧЕМУ ПРОПУСКАЕМ?
+            # Если статья уже есть - просто идем дальше
             if str(post["id"]) in posted:
-                logging.info(f"⏭️ ID={post['id']} уже в posted.json. Пропуск.")
+                # logging.info(f"⏭️ ID={post['id']} уже был. Ищем дальше...") # Раскомментируй, если интересно
                 continue
                 
             if meta := parse_and_save(post, args.lang, stop):
                 processed.append(meta)
                 count += 1
             else:
-                # Если parse_and_save вернул None, логи уже написали почему (стоп-слово или нет картинок)
-                pass
+                pass # Пропуск по причине фильтров (картинки/стоп-слова)
 
         if processed:
             for m in processed:
