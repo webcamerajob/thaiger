@@ -24,7 +24,7 @@ OUTPUT_DIR = Path("articles")
 CATALOG_PATH = OUTPUT_DIR / "catalog.json"
 MAX_RETRIES = 3
 BASE_DELAY = 1.0
-MAX_POSTED_RECORDS = 30
+MAX_POSTED_RECORDS = 100
 
 SCRAPER = cffi_requests.Session(
     impersonate="safari15_5",
@@ -321,3 +321,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
