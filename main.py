@@ -243,16 +243,16 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
 
     soup = BeautifulSoup(page_html, "html.parser")
 
-    # -----------------------------------------------------------
-    # 🔥 ФИКС: УДАЛЯЕМ БЛОК "RELATED ARTICLES" (post-widget-thumbnail)
-    # Это удаляет HTML-код с мусорными картинками ДО их поиска
-    # -----------------------------------------------------------
+    # Удаляем блок "Related Articles"
     for related in soup.find_all("div", class_="post-widget-thumbnail"):
         related.decompose()
 
-    # Чистка остального мусора
+    # Чистка остального мусора (С ФИКСОМ ОШИБКИ NoneType)
     for junk in soup.find_all(["span", "div", "script", "style", "iframe"]):
-        # Если класс содержит widget, related или mce_SELRES - удаляем
+        # 🔥 ФИКС: Проверка, что у элемента есть атрибуты
+        if not hasattr(junk, 'attrs') or junk.attrs is None:
+            continue
+            
         cls_str = str(junk.get("class", ""))
         if junk.get("data-mce-type") or "mce_SELRES" in cls_str or "widget" in cls_str:
             junk.decompose()
@@ -271,7 +271,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     img_dir = art_dir / "images"
     srcs = set()
     
-    # Сбор картинок (теперь без related)
+    # Сбор картинок
     if content_div:
         for img in content_div.find_all("img"):
             if u := extract_img_url(img): srcs.add(u)
