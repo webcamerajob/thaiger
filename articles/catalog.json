@@ -10100,5 +10100,33 @@
     "posted": false,
     "hash": "c40f17a7d24b5ae4ec3e0cb997dd4793fec9a85644cda2fa9c03bede386a7fc5",
     "translated_to": "ru"
+  },
+  {
+    "id": "978228",
+    "slug": "ai-arrests-cyber-scam-pattaya",
+    "date": "2026-01-23T13:50:44",
+    "link": "https://thethaiger.com/news/national/ai-arrests-cyber-scam-pattaya",
+    "title": "Камеры с искусственным интеллектом засняли подозреваемых в мошенничестве на отдыхе в Паттайе",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-52.jpg"
+    ],
+    "posted": false,
+    "hash": "3a35137600eba30fc1650cb6b916b8c4fcc72410ec17c44669e3c36e3610b7b9",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978190",
+    "slug": "koh-pha-ngan-drug-raid-airpods-theft",
+    "date": "2026-01-23T13:02:01",
+    "link": "https://thethaiger.com/news/national/koh-pha-ngan-drug-raid-airpods-theft",
+    "title": "Украденные у финского туриста AirPods привели к задержанию наркоторговцев на острове Пханган",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-51.jpg"
+    ],
+    "posted": false,
+    "hash": "1fe19814de06da3ba183d6dbb8ec6eb86feb7fee9527cdf7186e9b3f97178f3d",
+    "translated_to": "ru"
   }
 ]
