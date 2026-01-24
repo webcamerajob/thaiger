@@ -13,18 +13,19 @@ from typing import Any, Dict, List, Optional, Set
 import fcntl
 
 from bs4 import BeautifulSoup
-# ИСПОЛЬЗУЕМ БЫСТРЫЙ ДВИЖОК
 from curl_cffi import requests as cffi_requests, CurlHttpVersion
 import translators as ts
 
-# --- ИЗМЕНЕНИЕ: Включаем уровень DEBUG для подробностей ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 OUTPUT_DIR = Path("articles")
 CATALOG_PATH = OUTPUT_DIR / "catalog.json"
 MAX_RETRIES = 3
 BASE_DELAY = 1.0
-MAX_POSTED_RECORDS = 100
+
+# Синхронизация: Помним 100, ищем 100 (чтобы не было пропусков)
+MAX_POSTED_RECORDS = 100 
+FETCH_DEPTH = 100 
 
 SCRAPER = cffi_requests.Session(
     impersonate="safari15_5",
@@ -49,9 +50,11 @@ def cleanup_old_articles(posted_ids_path: Path, articles_dir: Path):
             ids_to_keep = set(str(x) for x in all_posted[-MAX_POSTED_RECORDS:])
         cleaned = 0
         for f in articles_dir.iterdir():
-            if f.is_dir() and f.name.split('_', 1)[0].isdigit():
-                if f.name.split('_', 1)[0] not in ids_to_keep:
-                    shutil.rmtree(f); cleaned += 1
+            if f.is_dir():
+                parts = f.name.split('_', 1)
+                if parts and parts[0].isdigit():
+                    if parts[0] not in ids_to_keep:
+                        shutil.rmtree(f); cleaned += 1
         if cleaned: logging.info(f"🧹 Удалено {cleaned} старых папок.")
     except Exception: pass
 
@@ -83,57 +86,71 @@ def load_stopwords(file_path: Optional[Path]) -> List[str]:
             return [line.strip().lower() for line in f if line.strip()]
     except Exception: return []
 
-# --- УМНЫЙ ПОИСК КАРТИНОК ---
+# --- УМНЫЙ ПОИСК КАРТИНОК (ОБНОВЛЕННЫЙ) ---
 def extract_img_url(img_tag: Any) -> Optional[str]:
-    # 1. Srcset
+    """
+    Извлекает URL картинки, игнорируя мусор и мелкие миниатюры (300x200 и т.д.)
+    """
+    # 1. Проверка атрибутов размера (width/height)
+    # Если в теге прямо написано width="300" или меньше — выкидываем
+    width_attr = img_tag.get("width")
+    if width_attr and width_attr.isdigit():
+        if int(width_attr) < 400: # Минимальная ширина 400px
+            return None
+
+    # Вспомогательная функция проверки URL на "мелкость"
+    def is_low_res(url_str: str) -> bool:
+        url_lower = url_str.lower()
+        # Фильтр мусорных слов
+        bad_words = ["gif", "logo", "banner", "mastercard", "aba-", "payway", "icon", "button", "author", "avatar"]
+        if any(bw in url_lower for bw in bad_words): return True
+        
+        # Фильтр размеров WordPress (-300x200, -150x150 и т.д.)
+        # Ищем паттерн: тире + 3 цифры + x + цифры
+        if re.search(r'-\d{3}x\d{2,3}\.', url_str):
+            return True
+        return False
+
+    # 2. Поиск в SRCSET (берем самое большое)
     srcset = img_tag.get("srcset") or img_tag.get("data-srcset")
     if srcset:
         try:
             parts = srcset.split(',')
             links = []
             for p in parts:
+                # Ищем пары "URL РАЗМЕРw"
                 match = re.search(r'(\S+)\s+(\d+)w', p.strip())
-                if match: links.append((int(match.group(2)), match.group(1)))
-            if links: return sorted(links, key=lambda x: x[0], reverse=True)[0][1]
+                if match: 
+                    w_val = int(match.group(2))
+                    u_val = match.group(1)
+                    if w_val >= 400: # Берем только если ширина >= 400
+                        links.append((w_val, u_val))
+            
+            if links:
+                # Сортируем по убыванию ширины и берем самую большую
+                best_link = sorted(links, key=lambda x: x[0], reverse=True)[0][1]
+                if not is_low_res(best_link):
+                    return best_link.split('?')[0] # Чистим query параметры
         except Exception: pass
     
-    # 2. Attributes
-    for attr in ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]:
+    # 3. Поиск в обычных атрибутах (Fallback)
+    attrs = ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]
+    for attr in attrs:
         if val := img_tag.get(attr):
             clean_val = val.split()[0].split(',')[0].split('?')[0]
-            # ЛОГ ОТКАЗА (ФИЛЬТР МУСОРА)
-            for bad in ["gif", "logo", "banner", "mastercard", "aba-", "payway", "icon", "button", "author"]:
-                if bad in clean_val.lower():
-                    # logging.info(f"   🗑️ Картинка отброшена (фильтр '{bad}'): {clean_val}") 
-                    return None
-            return clean_val
+            if not is_low_res(clean_val):
+                return clean_val
+                
     return None
 
-# --- ПЕРЕВОД ---
-PROVIDER_LIMITS = {"google": 4800, "bing": 4500, "yandex": 4000}
-def chunk_text(text, limit):
-    c = []
-    while text:
-        if len(text)<=limit: c.append(text); break
-        sp = text.rfind('\n\n',0,limit)
-        if sp==-1: sp=text.rfind('. ',0,limit)
-        if sp==-1: sp=limit
-        end=max(1,sp+(2 if text[sp:sp+2]=='\n\n' else 1))
-        c.append(text[:end]); text=text[end:].lstrip()
-    return c
-
+# --- ПЕРЕВОД (Функция-заглушка для ai_main) ---
 def translate_text(text: str, to_lang: str = "ru") -> Optional[str]:
+    # Эта функция будет перезаписана из ai_main.py
+    # Оставляем простую реализацию на случай запуска без AI
     if not text: return ""
-    norm = normalize_text(text)
-    for p in ["yandex", "google", "bing"]:
-        try:
-            res = []
-            for ch in chunk_text(norm, PROVIDER_LIMITS.get(p, 3000)):
-                time.sleep(0.5)
-                res.append(ts.translate_text(ch, translator=p, from_language="en", to_language=to_lang, timeout=45))
-            return "".join(res)
-        except Exception: continue
-    return None
+    try:
+        return ts.translate_text(text, translator="google", from_language="en", to_language=to_lang)
+    except: return text
 
 # --- ЗАПРОСЫ ---
 def fetch_cat_id(url, slug):
@@ -143,7 +160,7 @@ def fetch_cat_id(url, slug):
     return data[0]["id"]
 
 def fetch_posts(url, cid, limit):
-    logging.info(f"Запрашиваем {limit} последних статей из API...") # Лог
+    logging.info(f"Запрашиваем {limit} последних статей из API...") 
     time.sleep(2)
     try:
         r = SCRAPER.get(f"{url}/wp-json/wp/v2/posts?categories={cid}&per_page={limit}&_embed", timeout=SCRAPER_TIMEOUT)
@@ -156,7 +173,11 @@ def fetch_posts(url, cid, limit):
 
 def save_image(url, folder):
     folder.mkdir(parents=True, exist_ok=True)
-    dest = folder / url.rsplit('/',1)[-1].split('?',1)[0]
+    fn = url.rsplit('/',1)[-1].split('?',1)[0]
+    # Защита от дурацких имен файлов
+    if len(fn) > 50: fn = hashlib.md5(fn.encode()).hexdigest() + ".jpg"
+    dest = folder / fn
+    
     try:
         dest.write_bytes(SCRAPER.get(url, timeout=SCRAPER_TIMEOUT).content)
         return str(dest)
@@ -164,31 +185,30 @@ def save_image(url, folder):
 
 # --- ПАРСИНГ ---
 def parse_and_save(post, lang, stopwords):
-    time.sleep(4)
+    time.sleep(2) # Небольшая пауза
     aid, slug, link = str(post["id"]), post["slug"], post.get("link")
     
     raw_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
     title = sanitize_text(raw_title)
 
-    # 1. Проверка СТОП-СЛОВ
     if stopwords:
         for ph in stopwords:
             if ph in title.lower():
-                logging.info(f"🚫 ID={aid}: Стоп-слово '{ph}' в заголовке.")
+                logging.info(f"🚫 ID={aid}: Стоп-слово '{ph}'")
                 return None
 
     try:
         html_txt = SCRAPER.get(link, timeout=SCRAPER_TIMEOUT).text
     except Exception: return None
 
-    # 2. Проверка ИЗМЕНЕНИЙ (Хэш)
+    # Хэш проверка
     meta_path = OUTPUT_DIR / f"{aid}_{slug}" / "meta.json"
     curr_hash = hashlib.sha256(html_txt.encode()).hexdigest()
     if meta_path.exists():
         try:
             m = json.loads(meta_path.read_text(encoding="utf-8"))
-            if m.get("hash") == curr_hash and m.get("translated_to", "") == lang:
-                logging.info(f"⏭️ ID={aid}: Статья не изменилась. Пропуск.")
+            if m.get("hash") == curr_hash:
+                logging.info(f"⏭️ ID={aid}: Без изменений.")
                 return m
         except: pass
 
@@ -196,20 +216,20 @@ def parse_and_save(post, lang, stopwords):
 
     soup = BeautifulSoup(html_txt, "html.parser")
     
-    # УДАЛЯЕМ МУСОР (включая Related)
+    # ЧИСТКА ОТ МУСОРА
     for r in soup.find_all("div", class_="post-widget-thumbnail"): r.decompose()
     for j in soup.find_all(["span", "div", "script", "style", "iframe"]):
-        if not hasattr(j, 'attrs') or j.attrs is None: continue # ФИКС ОТ noneType
+        if not hasattr(j, 'attrs') or j.attrs is None: continue 
         c = str(j.get("class", ""))
         if j.get("data-mce-type") or "mce_SELRES" in c or "widget" in c: j.decompose()
 
-    # ТЕКСТ
+    # СБОР КОНТЕНТА
     paras = []
     if c_div := soup.find("div", class_="entry-content"):
         for r in c_div.find_all(["ul", "ol", "div"], class_=re.compile(r"rp4wp|related|ad-")): r.decompose()
         paras = [sanitize_text(p.get_text(strip=True)) for p in c_div.find_all("p")]
     
-    # КАРТИНКИ
+    # СБОР КАРТИНОК (С ФИЛЬТРАЦИЕЙ)
     srcs = set()
     if c_div:
         for img in c_div.find_all("img"):
@@ -222,17 +242,19 @@ def parse_and_save(post, lang, stopwords):
             for f in as_completed(futs):
                 if p:=f.result(): images.append(p)
     
-    # FALLBACK НА FEATURED
+    # FALLBACK НА FEATURED IMAGE (Если в тексте пусто)
     if not images and "_embedded" in post and (m:=post["_embedded"].get("wp:featuredmedia")):
         if isinstance(m, list) and (u:=m[0].get("source_url")):
-             if p:=save_image(u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): images.append(p)
+             # Тут тоже проверяем, не подсовывают ли нам мелочь (хотя featured обычно ок)
+             if "300x200" not in u and "150x150" not in u:
+                if p:=save_image(u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): images.append(p)
 
-    # 3. Проверка НАЛИЧИЯ КАРТИНОК
     if not images:
-        logging.warning(f"⚠️ ID={aid}: Все картинки отфильтрованы или отсутствуют. Пропуск статьи.")
+        logging.warning(f"⚠️ ID={aid}: Нет норм картинок (все отсеяны). Skip.")
         return None
 
-    # ПЕРЕВОД И СОХРАНЕНИЕ
+    # ПЕРЕВОД
+    # Примечание: Если запущен ai_main, translate_text будет ИИ-функцией
     final_title = translate_text(title, lang) if lang else title
     final_title = sanitize_text(final_title)
     
@@ -249,7 +271,11 @@ def parse_and_save(post, lang, stopwords):
         "hash": curr_hash, "translated_to": ""
     }
 
+    # Если мы в режиме ИИ, текст переводится сразу при обработке translate_with_ai (как Summary)
+    # Если мы в обычном режиме, переводим тут
     if lang:
+        # Проверяем, не перевели ли мы уже текст внутри функции (для AI_Main это актуально)
+        # Но для простоты: переводим чистый текст
         tr_text = translate_text(raw_txt_clean, lang)
         if tr_text:
             (art_dir / f"content.{lang}.txt").write_text(f"{final_title}\n\n{tr_text}", encoding="utf-8")
@@ -274,10 +300,7 @@ def main():
         cleanup_old_articles(Path(args.posted_state_file), OUTPUT_DIR)
         
         cid = fetch_cat_id(args.base_url, args.slug)
-        
-        # --- ВАЖНОЕ ИЗМЕНЕНИЕ ---
-        # Запрашиваем 30 постов, чтобы "пробить" слой старых статей
-        posts = fetch_posts(args.base_url, cid, 30)
+        posts = fetch_posts(args.base_url, cid, FETCH_DEPTH)
         
         posted = load_posted_ids(Path(args.posted_state_file))
         stop = load_stopwords(Path(args.stopwords_file))
@@ -288,22 +311,17 @@ def main():
         processed = []
         count = 0
         
-        logging.info(f"Найдено {len(posts)} постов в API (будем искать новые среди них).")
+        logging.info(f"В API {len(posts)} постов. Ищем новые...")
         
         for post in posts:
             if count >= args.limit: 
-                logging.info(f"Достигнут лимит обработки ({args.limit}). Остановка."); break
+                logging.info(f"Лимит {args.limit} достигнут."); break
             
-            # Если статья уже есть - просто идем дальше
-            if str(post["id"]) in posted:
-                # logging.info(f"⏭️ ID={post['id']} уже был. Ищем дальше...") # Раскомментируй, если интересно
-                continue
+            if str(post["id"]) in posted: continue
                 
             if meta := parse_and_save(post, args.lang, stop):
                 processed.append(meta)
                 count += 1
-            else:
-                pass # Пропуск по причине фильтров (картинки/стоп-слова)
 
         if processed:
             for m in processed:
@@ -320,8 +338,4 @@ def main():
         exit(1)
 
 if __name__ == "__main__":
-    main()
-
-
-
-
+    main.main()
