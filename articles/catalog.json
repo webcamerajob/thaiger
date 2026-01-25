@@ -10485,5 +10485,37 @@
     "posted": false,
     "hash": "abc41d374e26e349d2d75129be431976c5a481b4c51460cef72ef4f7e46442db",
     "translated_to": "ru"
+  },
+  {
+    "id": "978427",
+    "slug": "man-claims-spirit-possession-in-fatal-stabbing-of-grandmother",
+    "date": "2026-01-25T13:37:11",
+    "link": "https://thethaiger.com/news/national/man-claims-spirit-possession-in-fatal-stabbing-of-grandmother",
+    "title": "Мужчина заявил, что одержим духом, нанеся ножевое ранение бабушке",
+    "text_file": "content.ru.txt",
+    "images": [
+      "kill-grandma-2.jpg",
+      "knife-used.jpg"
+    ],
+    "posted": false,
+    "hash": "0f32afb4bcef86c2ac4b9167c6e078f425403fc405b566dd071475edfd4c6d1d",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978525",
+    "slug": "annual-wat-phra-that-phanom-festival-unites-thai-and-lao-devotees",
+    "date": "2026-01-25T13:19:57",
+    "link": "https://thethaiger.com/news/national/annual-wat-phra-that-phanom-festival-unites-thai-and-lao-devotees",
+    "title": "Ежегодный фестиваль Ват Пхра Тхат Пханом объединяет тайских и лаосских преданных",
+    "text_file": "content.ru.txt",
+    "images": [
+      "festival-1.jpg",
+      "festival-2.jpg",
+      "festival-4.jpg",
+      "festival-5.jpg"
+    ],
+    "posted": false,
+    "hash": "79ca17733b455e2167e697f2ec2c247185ec20d80305801675ecb2d2232842c7",
+    "translated_to": "ru"
   }
 ]
