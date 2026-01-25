@@ -10438,5 +10438,52 @@
     "posted": false,
     "hash": "c2f85bcd7cf015d7869eabdad6a6ec0f280a8e110333d6eb8d541db08eb7b552",
     "translated_to": "ru"
+  },
+  {
+    "id": "978455",
+    "slug": "train-services-resume-after-fatal-crane-collapse-in-thailand",
+    "date": "2026-01-25T12:30:22",
+    "link": "https://thethaiger.com/news/national/train-services-resume-after-fatal-crane-collapse-in-thailand",
+    "title": "Поезда возобновляются после обрушения крана в Таиланде",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-16T093238.771-1.jpg"
+    ],
+    "posted": false,
+    "hash": "cc4c6b535da06d9f7856e12f0f0fb9cd7b0a7ffec4fc7328d2bf03bf97c8a427",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978448",
+    "slug": "teenagers-confess-to-fatal-shooting-of-boy-in-bangkok-misunderstanding",
+    "date": "2026-01-25T11:58:12",
+    "link": "https://thethaiger.com/news/national/teenagers-confess-to-fatal-shooting-of-boy-in-bangkok-misunderstanding",
+    "title": "Подростки признались в смертельном расстреле мальчика в Бангкоке по недоразумению",
+    "text_file": "content.ru.txt",
+    "images": [
+      "shoot-2.jpg",
+      "shoot-3.jpg",
+      "shoot-4.jpg",
+      "shoot-5.jpg"
+    ],
+    "posted": false,
+    "hash": "3874e5aec4fceef654bfd7ff056cf8f191815224c51ce441b5c70d7ed2147f78",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978444",
+    "slug": "police-and-military-seize-4-7-million-meth-pills-in-thailand",
+    "date": "2026-01-25T11:48:26",
+    "link": "https://thethaiger.com/news/national/police-and-military-seize-4-7-million-meth-pills-in-thailand",
+    "title": "В Таиланде полиция и военные конфисковали 4,7 миллиона таблеток метамфетамина",
+    "text_file": "content.ru.txt",
+    "images": [
+      "amphetamine-16.jpg",
+      "amphetamine-9.jpg",
+      "meth-1.jpg"
+    ],
+    "posted": false,
+    "hash": "abc41d374e26e349d2d75129be431976c5a481b4c51460cef72ef4f7e46442db",
+    "translated_to": "ru"
   }
 ]
