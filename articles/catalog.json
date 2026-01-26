@@ -10589,6 +10589,34 @@
     "translated_to": "ru"
   },
   {
+    "id": "978705",
+    "slug": "delivery-riders-gather-outside-in-mob-police-station-after-assault-case",
+    "date": "2026-01-26T11:58:34",
+    "link": "https://thethaiger.com/news/national/delivery-riders-gather-outside-in-mob-police-station-after-assault-case",
+    "title": "Курьеры собираются на улице в полицейском участке после случая нападения",
+    "text_file": "content.ru.txt",
+    "images": [
+      "ChatGPT-Image-Jan-26-2026-11_43_35-AM.jpg"
+    ],
+    "posted": false,
+    "hash": "c8ebece35bb20a52a696e91e990371ae6309e44145610d0377e9b68e4cfdb6a4",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978698",
+    "slug": "content-creator-criticised-for-staged-phone-theft-video-on-bts",
+    "date": "2026-01-26T11:50:10",
+    "link": "https://thethaiger.com/news/national/content-creator-criticised-for-staged-phone-theft-video-on-bts",
+    "title": "Создателя контента раскритиковали за постановочное видео о краже телефона на BTS",
+    "text_file": "content.ru.txt",
+    "images": [
+      "staged-phone-theft.jpg"
+    ],
+    "posted": false,
+    "hash": "025e06c780f2fac9ced4134aaddf7b955a4e9fafcfad1797478ac804f9bab1df",
+    "translated_to": "ru"
+  },
+  {
     "id": "978644",
     "slug": "thailand-video-news-26-01-2026",
     "date": "2026-01-26T11:37:22",
@@ -10599,7 +10627,7 @@
       "unnamed-7.jpg"
     ],
     "posted": false,
-    "hash": "1b95b638804310c151b3bdbf582a42aaa266092978908faeb2c737f5c5a47a07",
+    "hash": "9b9b53ae656dcbcae803249376aee881896d52feb6d5fa7635ab4e291266eea2",
     "translated_to": "ru"
   }
 ]
