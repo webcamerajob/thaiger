@@ -10643,5 +10643,34 @@
     "posted": false,
     "hash": "00e7ad8fe8146d25e2cb54b4abe4269b14e3ab12532e5dbeded20d9a7f8f67bd",
     "translated_to": "ru"
+  },
+  {
+    "id": "978801",
+    "slug": "authorities-prepare-return-of-46-million-baht-to-scam-victims",
+    "date": "2026-01-26T16:27:59",
+    "link": "https://thethaiger.com/news/national/authorities-prepare-return-of-46-million-baht-to-scam-victims",
+    "title": "Власти готовят возврат 46 миллионов бат жертвам мошенничества",
+    "text_file": "content.ru.txt",
+    "images": [
+      "ChatGPT-Image-Jan-26-2026-04_21_43-PM.jpg"
+    ],
+    "posted": false,
+    "hash": "8c9d975643a001d362fcf4872f6b652966758acd8b0c6a458e0a63f5978d75c4",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978784",
+    "slug": "cambodia-digs-trenches-near-thai-border",
+    "date": "2026-01-26T16:01:31",
+    "link": "https://thethaiger.com/news/national/cambodia-digs-trenches-near-thai-border",
+    "title": "Камбоджа роет траншеи возле тайской границы в провинции Трат",
+    "text_file": "content.ru.txt",
+    "images": [
+      "ChatGPT-Image-Jan-26-2026-03_16_32-PM.jpg",
+      "ChatGPT-Image-Jan-26-2026-03_50_35-PM.jpg"
+    ],
+    "posted": false,
+    "hash": "891a8f1f8df2260d0e1a9c8b077d2f9ee5f3e58db2e077bcc1cad7033d912dad",
+    "translated_to": "ru"
   }
 ]
