@@ -10672,5 +10672,33 @@
     "posted": false,
     "hash": "891a8f1f8df2260d0e1a9c8b077d2f9ee5f3e58db2e077bcc1cad7033d912dad",
     "translated_to": "ru"
+  },
+  {
+    "id": "978829",
+    "slug": "fake-police-gang-arrested-over-abductions-drug-planting-and-extortion",
+    "date": "2026-01-26T17:34:31",
+    "link": "https://thethaiger.com/news/national/fake-police-gang-arrested-over-abductions-drug-planting-and-extortion",
+    "title": "Фальшивая полицейская банда арестована за похищения, подброску наркотиков и вымогательство",
+    "text_file": "content.ru.txt",
+    "images": [
+      "ChatGPT-Image-Jan-26-2026-05_29_23-PM.jpg"
+    ],
+    "posted": false,
+    "hash": "7bfd4b8569d07a41454d6716568e7a7713caa8feed3feb2fb5a9d7c556b29300",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978813",
+    "slug": "police-dismantle-call-centre-scam-network-arrest-10-suspects",
+    "date": "2026-01-26T17:05:52",
+    "link": "https://thethaiger.com/news/national/police-dismantle-call-centre-scam-network-arrest-10-suspects",
+    "title": "Полиция ликвидировала мошенническую сеть колл-центров и арестовала 10 подозреваемых",
+    "text_file": "content.ru.txt",
+    "images": [
+      "ChatGPT-Image-Jan-26-2026-04_56_25-PM.jpg"
+    ],
+    "posted": false,
+    "hash": "e8641bd40f1d83f83d07e9ff6dda9aae61bd81daebe5c23acd35ab4c4046543e",
+    "translated_to": "ru"
   }
 ]
