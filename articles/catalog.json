@@ -10559,5 +10559,47 @@
     "posted": false,
     "hash": "c8cfe00d14cd4fd51061a3d0c7c429ab639a6a0bceb4ff0612d1d01a9ca325ee",
     "translated_to": "ru"
+  },
+  {
+    "id": "978644",
+    "slug": "thailand-video-news-26-01-2026",
+    "date": "2026-01-26T11:37:22",
+    "link": "https://thethaiger.com/video-podcasts/thailand-video-news-26-01-2026",
+    "title": "Новости Таиланда | Железнодорожное сообщение возобновляется на северо-востоке Таиланда после смертельного обрушения крана, кубок чемпионата мира по футболу посещает Бангкок, привлекая футбольных фанатов в ICONSIAM",
+    "text_file": "content.ru.txt",
+    "images": [
+      "unnamed-7.jpg"
+    ],
+    "posted": false,
+    "hash": "1b95b638804310c151b3bdbf582a42aaa266092978908faeb2c737f5c5a47a07",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978687",
+    "slug": "highway-police-arrest-smuggling-gang-using-families-as-cover",
+    "date": "2026-01-26T11:21:52",
+    "link": "https://thethaiger.com/news/national/highway-police-arrest-smuggling-gang-using-families-as-cover",
+    "title": "Дорожная полиция арестовала банду контрабандистов, использовавших семьи в качестве прикрытия",
+    "text_file": "content.ru.txt",
+    "images": [
+      "ChatGPT-Image-Jan-26-2026-11_16_19-AM.jpg"
+    ],
+    "posted": false,
+    "hash": "87c2d0d9550004a4bc9bcf976278a0306a196344851ea2b09fcf61a04b46a78e",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978669",
+    "slug": "large-methamphetamine-cache-found-at-roadside-electric-pole",
+    "date": "2026-01-26T10:54:26",
+    "link": "https://thethaiger.com/news/national/large-methamphetamine-cache-found-at-roadside-electric-pole",
+    "title": "На придорожном электрическом столбе обнаружен большой тайник с метамфетамином",
+    "text_file": "content.ru.txt",
+    "images": [
+      "ChatGPT-Image-Jan-26-2026-10_36_56-AM.jpg"
+    ],
+    "posted": false,
+    "hash": "bc57bd3f91a8bf97bf70474f9dbf462545c0a5a587b8ee7a19fc7a0a677fc134",
+    "translated_to": "ru"
   }
 ]
