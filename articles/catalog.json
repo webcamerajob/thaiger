@@ -10629,5 +10629,19 @@
     "posted": false,
     "hash": "9b9b53ae656dcbcae803249376aee881896d52feb6d5fa7635ab4e291266eea2",
     "translated_to": "ru"
+  },
+  {
+    "id": "978727",
+    "slug": "former-municipal-officer-shoots-motorcycle-taxi-driver-dead",
+    "date": "2026-01-26T14:26:17",
+    "link": "https://thethaiger.com/news/national/former-municipal-officer-shoots-motorcycle-taxi-driver-dead",
+    "title": "Бывший офицер застрелил водителя мототакси",
+    "text_file": "content.ru.txt",
+    "images": [
+      "ChatGPT-Image-Jan-26-2026-01_51_19-PM.jpg"
+    ],
+    "posted": false,
+    "hash": "00e7ad8fe8146d25e2cb54b4abe4269b14e3ab12532e5dbeded20d9a7f8f67bd",
+    "translated_to": "ru"
   }
 ]
