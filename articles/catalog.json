@@ -10531,5 +10531,33 @@
     "posted": false,
     "hash": "7ace6266a6ca424c8080861e14c20bcb2c394dc5c08f4a8105c951388662b7b3",
     "translated_to": "ru"
+  },
+  {
+    "id": "978657",
+    "slug": "thai-airports-nipah-virus",
+    "date": "2026-01-26T09:59:30",
+    "link": "https://thethaiger.com/news/national/thai-airports-nipah-virus",
+    "title": "Все больше аэропортов Таиланда ужесточают проверку на вирус Нипах",
+    "text_file": "content.ru.txt",
+    "images": [
+      "nipah-virus-2.jpg"
+    ],
+    "posted": false,
+    "hash": "c7818479ac6f4e7e7960244be7b9cf7320d02ae98cf5703a39c35ce7b66cc2ad",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978645",
+    "slug": "january-26-weather",
+    "date": "2026-01-26T09:34:55",
+    "link": "https://thethaiger.com/news/national/january-26-weather",
+    "title": "Погода 26 января: прохладное утро, местами туман, система высокого давления ослабевает.",
+    "text_file": "content.ru.txt",
+    "images": [
+      "january-26-weather.jpg"
+    ],
+    "posted": false,
+    "hash": "c8cfe00d14cd4fd51061a3d0c7c429ab639a6a0bceb4ff0612d1d01a9ca325ee",
+    "translated_to": "ru"
   }
 ]
