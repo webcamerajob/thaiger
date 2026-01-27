@@ -10894,5 +10894,36 @@
     "posted": false,
     "hash": "2e90958aba063964394380bd8eea9fec6146ace57df48011dd9528e46f5a9014",
     "translated_to": "ru"
+  },
+  {
+    "id": "979047",
+    "slug": "thai-soldier-shoots-social-media-influencers-brother-in-jealous-rage",
+    "date": "2026-01-27T15:34:34",
+    "link": "https://thethaiger.com/news/national/thai-soldier-shoots-social-media-influencers-brother-in-jealous-rage",
+    "title": "Тайский солдат в ярости застрелил брата влиятельного лица в социальных сетях",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-27T144535.930.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T144604.984.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T152216.471.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T152236.901.jpg"
+    ],
+    "posted": false,
+    "hash": "38b65a4b46336c1a3c1f639c757a471da009ac368a3b2ce594b975e1e9657804",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979050",
+    "slug": "man-arrested-underwear-theft-pathum-thani",
+    "date": "2026-01-27T15:09:52",
+    "link": "https://thethaiger.com/news/national/man-arrested-underwear-theft-pathum-thani",
+    "title": "Вор нижнего белья Патум Тани пойман после нападения на прачечную",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-73.jpg"
+    ],
+    "posted": false,
+    "hash": "b60b3eba19dc6c7e31a121441217125092e9b69e503002b6b9c5ca61aad69fa7",
+    "translated_to": "ru"
   }
 ]
