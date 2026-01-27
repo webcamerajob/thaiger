@@ -10831,5 +10831,37 @@
     "posted": false,
     "hash": "1639f2f142e3f706ed1f5e6f0f4d36b8067e18415b834b6a0508a94efb6de914",
     "translated_to": "ru"
+  },
+  {
+    "id": "978992",
+    "slug": "thailand-wild-elephant-birth-control-vaccine",
+    "date": "2026-01-27T13:50:12",
+    "link": "https://thethaiger.com/news/national/thailand-wild-elephant-birth-control-vaccine",
+    "title": "Таиланд запускает первую программу контроля над рождаемостью слонов в Трате",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-67.jpg",
+      "สำเนาของ-23-34-68.jpg"
+    ],
+    "posted": false,
+    "hash": "dc643dfe14e68a28794bc3e7a05d457a72bd41d1d7b8fd8a18004be25ccac5f2",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979011",
+    "slug": "dsi-uncovers-4-pea-officials-linked-to-illegal-crypto-mining-and-power-theft",
+    "date": "2026-01-27T13:45:30",
+    "link": "https://thethaiger.com/news/national/dsi-uncovers-4-pea-officials-linked-to-illegal-crypto-mining-and-power-theft",
+    "title": "DSI раскрывает четырех чиновников PEA, связанных с незаконным майнингом криптовалют и кражей электроэнергии",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-27T132936.086.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T133004.082.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T133028.700.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T133106.667.jpg"
+    ],
+    "posted": false,
+    "hash": "81fe2528934d0db6bedb51a2316c8a216a28677cbe4e137f34e44a791785c3c3",
+    "translated_to": "ru"
   }
 ]
