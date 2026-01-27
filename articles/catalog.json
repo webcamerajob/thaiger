@@ -10925,5 +10925,51 @@
     "posted": false,
     "hash": "b60b3eba19dc6c7e31a121441217125092e9b69e503002b6b9c5ca61aad69fa7",
     "translated_to": "ru"
+  },
+  {
+    "id": "979092",
+    "slug": "british-man-shoots-wife-maha-sarakham",
+    "date": "2026-01-27T16:55:00",
+    "link": "https://thethaiger.com/news/northern-thailand/british-man-shoots-wife-maha-sarakham",
+    "title": "Британец арестован после смертельного ранения жены в Маха Саракхаме",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-78.jpg"
+    ],
+    "posted": false,
+    "hash": "5009b9eceb231f3a3a5a9962afed98cabba858ef995bfd36e6947e29eaaeb927",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979082",
+    "slug": "viral-videos-sparks-prove-into-cat-abuse-at-bangkok-cafe",
+    "date": "2026-01-27T16:52:35",
+    "link": "https://thethaiger.com/news/bangkok/viral-videos-sparks-prove-into-cat-abuse-at-bangkok-cafe",
+    "title": "Вирусные видео искры доказывают жестокое обращение с кошками в кафе Бангкока",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-27T163045.864.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T163441.347.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T164351.195.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T164444.801.jpg"
+    ],
+    "posted": false,
+    "hash": "f09a11693ed66d0ffe7696bdc4b010501b6f4da2a15309e02816e03cd2ba6ac1",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979065",
+    "slug": "pregnant-woman-saves-cat-from-python-nakhon-nayok",
+    "date": "2026-01-27T15:59:21",
+    "link": "https://thethaiger.com/news/national/pregnant-woman-saves-cat-from-python-nakhon-nayok",
+    "title": "Беременная женщина спасает кошку от питона в Накхоннайоке",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-75.jpg",
+      "สำเนาของ-23-34-76.jpg"
+    ],
+    "posted": false,
+    "hash": "147a288ffadfc906d571d0a9bb9dad2cef1d8790a9bc0e7a9374fedfd220c017",
+    "translated_to": "ru"
   }
 ]
