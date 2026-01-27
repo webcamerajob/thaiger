@@ -10728,5 +10728,64 @@
     "posted": false,
     "hash": "75e4b0884018e6fafe4a017f75d98c26ce0d676531ecaab9c8b5bb1b3f3ee75d",
     "translated_to": "ru"
+  },
+  {
+    "id": "978949",
+    "slug": "samut-prakan-condo-knife-attack",
+    "date": "2026-01-27T10:58:16",
+    "link": "https://thethaiger.com/news/national/samut-prakan-condo-knife-attack",
+    "title": "Любовный треугольник закончился жестоким ножевым ранением в квартире Самут Пракан",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-63.jpg"
+    ],
+    "posted": false,
+    "hash": "7233438a675172c94be348426c7cc6b5090959a03e4b16df829b8f4467fff380",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978946",
+    "slug": "3-frenchmen-flee-after-attacking-phuket-food-vendor-in-parking-row",
+    "date": "2026-01-27T10:45:50",
+    "link": "https://thethaiger.com/news/phuket/3-frenchmen-flee-after-attacking-phuket-food-vendor-in-parking-row",
+    "title": "Трое французов бегут после нападения на продавца продуктов питания на Пхукете на парковке",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-27T104005.707.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T104042.382.jpg"
+    ],
+    "posted": false,
+    "hash": "21213645fb7a895554a8117c2382e6241d52011665ebdbfcfeeab4518ee64ce4",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978924",
+    "slug": "phuket-hotel-service-charge-2025",
+    "date": "2026-01-27T10:18:12",
+    "link": "https://thethaiger.com/news/national/phuket-hotel-service-charge-2025",
+    "title": "Шестизначная сумма за обслуживание отеля на Пхукете ошеломила пользователей сети",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-61.jpg"
+    ],
+    "posted": false,
+    "hash": "2c4aeca76fc3701eb8884174f49a9974587fcb2c3fdef0652177ab97a2e7796e",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978925",
+    "slug": "american-man-and-3-british-nationals-come-to-peace-after-pattaya-brawl",
+    "date": "2026-01-27T10:12:49",
+    "link": "https://thethaiger.com/news/pattaya/american-man-and-3-british-nationals-come-to-peace-after-pattaya-brawl",
+    "title": "Американец и трое граждан Великобритании пришли к миру после драки в Паттайе",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-27T095931.810.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T100005.980.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T100047.828.jpg"
+    ],
+    "posted": false,
+    "hash": "e287cc11f860435b0a06a0a950198f7a01b5f00ef63137bcc698c36f608126b8",
+    "translated_to": "ru"
   }
 ]
