@@ -10863,5 +10863,36 @@
     "posted": false,
     "hash": "81fe2528934d0db6bedb51a2316c8a216a28677cbe4e137f34e44a791785c3c3",
     "translated_to": "ru"
+  },
+  {
+    "id": "979031",
+    "slug": "new-thai-court-platform-allows-direct-requests-to-delete-explicit-content",
+    "date": "2026-01-27T14:30:39",
+    "link": "https://thethaiger.com/news/national/new-thai-court-platform-allows-direct-requests-to-delete-explicit-content",
+    "title": "Новая судебная платформа Таиланда позволяет напрямую запрашивать удаление откровенного контента",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-27T141324.090.jpg",
+      "View-more-by-Leung-Cho-Pan.jpg",
+      "View-more-by-towfiqu-barbhuiya.jpg"
+    ],
+    "posted": false,
+    "hash": "24a94d5769a1738dd309093f2e76a6547f4a38dc5f41426e4ce0e9336d3933b3",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979033",
+    "slug": "nonthaburi-cat-rescue-locked-room",
+    "date": "2026-01-27T14:21:34",
+    "link": "https://thethaiger.com/news/national/nonthaburi-cat-rescue-locked-room",
+    "title": "20 голодающих кошек спасли из запертой комнаты в Нонтхабури",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-70.jpg",
+      "สำเนาของ-23-34-71.jpg"
+    ],
+    "posted": false,
+    "hash": "2e90958aba063964394380bd8eea9fec6146ace57df48011dd9528e46f5a9014",
+    "translated_to": "ru"
   }
 ]
