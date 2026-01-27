@@ -10971,5 +10971,34 @@
     "posted": false,
     "hash": "147a288ffadfc906d571d0a9bb9dad2cef1d8790a9bc0e7a9374fedfd220c017",
     "translated_to": "ru"
+  },
+  {
+    "id": "979106",
+    "slug": "thai-woman-accuses-monk-of-groping-her-during-blessing-ceremony",
+    "date": "2026-01-27T17:48:10",
+    "link": "https://thethaiger.com/news/national/thai-woman-accuses-monk-of-groping-her-during-blessing-ceremony",
+    "title": "Тайская женщина обвиняет монаха в том, что он лапал ее во время церемонии благословения",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-27T172359.132.jpg",
+      "Thaiger-Cover-Picture-2026-01-27T173335.767.jpg"
+    ],
+    "posted": false,
+    "hash": "5b33eb4bb7d989b42a68cde0b080314201868d109a7e101ae618f5abcf32755c",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979109",
+    "slug": "chiang-rai-inmate-escape-doi-hang",
+    "date": "2026-01-27T17:26:15",
+    "link": "https://thethaiger.com/news/national/chiang-rai-inmate-escape-doi-hang",
+    "title": "Заключенный Чианграя сбежал во время программы реабилитации",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-80.jpg"
+    ],
+    "posted": false,
+    "hash": "0177ac15b8facfc77a517662cc981b0c1cb21af3fbbceeaf86420a6011f34a15",
+    "translated_to": "ru"
   }
 ]
