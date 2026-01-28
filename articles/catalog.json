@@ -11075,5 +11075,35 @@
     "posted": false,
     "hash": "6864b2e543f111cfe20f068a5fe0a43c03c1829eae47b899d5745396d467de4b",
     "translated_to": "ru"
+  },
+  {
+    "id": "979254",
+    "slug": "suvarnabhumi-airport-denies-attempted-hijacking-after-old-video-sparks-panic",
+    "date": "2026-01-28T11:11:17",
+    "link": "https://thethaiger.com/news/bangkok/suvarnabhumi-airport-denies-attempted-hijacking-after-old-video-sparks-panic",
+    "title": "Аэропорт Суварнабхуми отрицает попытку угона самолета после того, как старое видео вызвало панику",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-28T110125.135.jpg",
+      "Thaiger-Cover-Picture-2026-01-28T110154.349.jpg"
+    ],
+    "posted": false,
+    "hash": "a6e2011d6f0b8af25de4f4d6a9d33bdd02e6f4a1a99e5e6c0843b58c57cca430",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979257",
+    "slug": "nakhon-nayok-field-fire-near-homes",
+    "date": "2026-01-28T11:01:48",
+    "link": "https://thethaiger.com/news/national/nakhon-nayok-field-fire-near-homes",
+    "title": "Пожар в Накхоннайоке распространяется возле домов, подозрение на поджог",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-85.jpg",
+      "สำเนาของ-23-34-86.jpg"
+    ],
+    "posted": false,
+    "hash": "72f423ba7f422dc6ab44d4034685608812520a7f6a02364ee5bd7601801e996d",
+    "translated_to": "ru"
   }
 ]
