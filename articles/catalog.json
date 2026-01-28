@@ -11105,5 +11105,50 @@
     "posted": false,
     "hash": "72f423ba7f422dc6ab44d4034685608812520a7f6a02364ee5bd7601801e996d",
     "translated_to": "ru"
+  },
+  {
+    "id": "979307",
+    "slug": "thailand-video-news-28-01-2026",
+    "date": "2026-01-28T11:54:24",
+    "link": "https://thethaiger.com/video-podcasts/thailand-video-news-28-01-2026",
+    "title": "Новости Таиланда | Британский гражданин задержан после смертельного ранения жены в Маха Саракхаме. Беременная женщина спасает кошку от питона на заднем дворе Накхон Найока",
+    "text_file": "content.ru.txt",
+    "images": [
+      "unnamed-2-1.jpg"
+    ],
+    "posted": false,
+    "hash": "250b8100733712fb4a4d30693a7fc25f720ae3bdb5cf04dfb11b8ff17332818e",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979287",
+    "slug": "danish-man-steals-land-deeds-from-chinese-victim-on-koh-samui",
+    "date": "2026-01-28T11:49:00",
+    "link": "https://thethaiger.com/news/samui/danish-man-steals-land-deeds-from-chinese-victim-on-koh-samui",
+    "title": "Датчанин украл документы на землю у китайской жертвы на острове Самуи",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-28T113223.738.jpg",
+      "Thaiger-Cover-Picture-2026-01-28T113244.723.jpg",
+      "Thaiger-Cover-Picture-2026-01-28T113300.127.jpg"
+    ],
+    "posted": false,
+    "hash": "ef7b0f6bfde5e4194dc4fd3c9ff33d07f3e88a91bd9ea14030f79c0523c6f07b",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979281",
+    "slug": "chon-buri-monastic-centre-raid-monks-defrocked",
+    "date": "2026-01-28T11:36:54",
+    "link": "https://thethaiger.com/news/national/chon-buri-monastic-centre-raid-monks-defrocked",
+    "title": "Рейд в монастырский центр Чонбури выявил употребление наркотиков и откровенное содержание",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-88.jpg",
+      "สำเนาของ-23-34-89.jpg"
+    ],
+    "posted": false,
+    "hash": "c7c7eeac6fcd4f5abfb7a4691c32317d02e0a1b97bb282ac6e6e9ad2c7bfef61",
+    "translated_to": "ru"
   }
 ]
