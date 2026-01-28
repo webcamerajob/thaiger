@@ -11224,5 +11224,34 @@
     "posted": false,
     "hash": "b732255be35240f9a4b8e7f875eb5f23ebe94b79af506c91cdcb31ed45054fe8",
     "translated_to": "ru"
+  },
+  {
+    "id": "979365",
+    "slug": "whale-dies-satun-fishing-village",
+    "date": "2026-01-28T15:18:49",
+    "link": "https://thethaiger.com/news/national/whale-dies-satun-fishing-village",
+    "title": "Выброшенный на мель кит погиб в Сатуне, несмотря на попытки местных жителей спасти его",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-96.jpg"
+    ],
+    "posted": false,
+    "hash": "2bc6836b20161ddaed1dbc6a8606e0671e527ee94954bf90559b3164ee341c58",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979363",
+    "slug": "police-bust-thai-vietnamese-mule-account-gang-during-bangkok-meetup",
+    "date": "2026-01-28T15:16:43",
+    "link": "https://thethaiger.com/news/bangkok/police-bust-thai-vietnamese-mule-account-gang-during-bangkok-meetup",
+    "title": "Полиция арестовала тайско-вьетнамскую банду, занимавшуюся продажей мулов, во время встречи в Бангкоке",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-28T150548.690.jpg",
+      "Thaiger-Cover-Picture-2026-01-28T150816.380.jpg"
+    ],
+    "posted": false,
+    "hash": "ab3bd69bafdcc230f05dd5517b60690dd071bf767c06854cc626bb01e7828adc",
+    "translated_to": "ru"
   }
 ]
