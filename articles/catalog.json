@@ -11298,5 +11298,35 @@
     "posted": false,
     "hash": "09e59f325fe8817f7ac1f470d09c8765e1508d81bc49725afb98c957b3ca1a3e",
     "translated_to": "ru"
+  },
+  {
+    "id": "979413",
+    "slug": "pattaya-taxi-driver-seeks-justice-after-foreign-brawl-damages-rented-car",
+    "date": "2026-01-28T17:37:00",
+    "link": "https://thethaiger.com/news/pattaya/pattaya-taxi-driver-seeks-justice-after-foreign-brawl-damages-rented-car",
+    "title": "Таксист в Паттайе добивается справедливости после того, как иностранная драка повредила арендованный автомобиль",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-28T172047.682.jpg",
+      "Thaiger-Cover-Picture-2026-01-28T172112.694.jpg",
+      "Thaiger-Cover-Picture-2026-01-28T172615.417.jpg"
+    ],
+    "posted": false,
+    "hash": "d8748e60aa85b8cca13f7430b7a81aa149586ffa88e929e8edb20a569a4a3098",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979393",
+    "slug": "student-falls-school-building-samut-prakan",
+    "date": "2026-01-28T16:57:11",
+    "link": "https://thethaiger.com/news/national/student-falls-school-building-samut-prakan",
+    "title": "Ученик начальной школы упал из здания школы в Самутпракане",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-99.jpg"
+    ],
+    "posted": false,
+    "hash": "b986f0aae159700621547cecb4f40aa632e2530e5fdc9554bdf89e7c9476c14e",
+    "translated_to": "ru"
   }
 ]
