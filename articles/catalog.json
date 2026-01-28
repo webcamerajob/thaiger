@@ -11253,5 +11253,50 @@
     "posted": false,
     "hash": "ab3bd69bafdcc230f05dd5517b60690dd071bf767c06854cc626bb01e7828adc",
     "translated_to": "ru"
+  },
+  {
+    "id": "979394",
+    "slug": "thai-man-escapes-death-after-stray-bullets-hit-pillow-while-sleeping",
+    "date": "2026-01-28T16:54:10",
+    "link": "https://thethaiger.com/news/national/thai-man-escapes-death-after-stray-bullets-hit-pillow-while-sleeping",
+    "title": "Тайскому мужчине удалось избежать смерти после того, как шальная пуля попала в подушку во время сна",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-28T164755.080.jpg",
+      "Thaiger-Cover-Picture-2026-01-28T164821.903.jpg"
+    ],
+    "posted": false,
+    "hash": "550bd92fe5e75b6c3b7cdf54dce3a5e0d7520f6bfc3232a2aadf48a23615d093",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979380",
+    "slug": "bangkok-pm2-5-pollution-work-from-home",
+    "date": "2026-01-28T16:08:56",
+    "link": "https://thethaiger.com/news/bangkok/bangkok-pm2-5-pollution-work-from-home",
+    "title": "Бангкок призывает провести ВФХ 29-30 января, поскольку загрязнение PM2,5 ухудшается",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Guide-Article-Template-92.jpg"
+    ],
+    "posted": false,
+    "hash": "a1524cf34994e4147f04c2b5bf9c442687fcd6ea60aaf5670fe214128810e000",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979378",
+    "slug": "spanish-woman-and-thai-vendor-critically-injured-in-chiang-mai-car-crash",
+    "date": "2026-01-28T16:02:24",
+    "link": "https://thethaiger.com/news/chiang-mai/spanish-woman-and-thai-vendor-critically-injured-in-chiang-mai-car-crash",
+    "title": "Испанка и тайский продавец серьезно пострадали в автокатастрофе в Чиангмае",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-28T155105.928.jpg",
+      "Thaiger-Cover-Picture-2026-01-28T155154.562.jpg",
+      "Thaiger-Cover-Picture-2026-01-28T155827.725.jpg"
+    ],
+    "posted": false,
+    "hash": "09e59f325fe8817f7ac1f470d09c8765e1508d81bc49725afb98c957b3ca1a3e",
+    "translated_to": "ru"
   }
 ]
