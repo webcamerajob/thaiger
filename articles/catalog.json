@@ -11554,5 +11554,35 @@
     "posted": false,
     "hash": "250a56caabde434be200024700a334254bea026182c3b99cf7a71fe4bfac0150",
     "translated_to": "ru"
+  },
+  {
+    "id": "979638",
+    "slug": "iranian-man-arrested-for-pickpocketing-chinese-tourist-in-bangkok",
+    "date": "2026-01-29T15:39:56",
+    "link": "https://thethaiger.com/news/bangkok/iranian-man-arrested-for-pickpocketing-chinese-tourist-in-bangkok",
+    "title": "Иранец арестован за карманную кражу китайского туриста в Бангкоке",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-29T153219.321.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T153307.586.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T153334.850.jpg"
+    ],
+    "posted": false,
+    "hash": "27cc4b4452ec1f3ca4dd467a0d198155c2d86184934cbc61066755ff675892a7",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979665",
+    "slug": "thai-fda-unregistered-herbal-inhaler-chang-thai",
+    "date": "2026-01-29T15:30:09",
+    "link": "https://thethaiger.com/news/national/thai-fda-unregistered-herbal-inhaler-chang-thai",
+    "title": "FDA Таиланда предупреждает о незарегистрированном травяном ингаляторе Chang Thai",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-2026-01-29T151844.375.jpg"
+    ],
+    "posted": false,
+    "hash": "28b902b4dc58c6d95280e51195507dcfba00872e4e42349e9207294087c7833a",
+    "translated_to": "ru"
   }
 ]
