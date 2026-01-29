@@ -11584,5 +11584,35 @@
     "posted": false,
     "hash": "28b902b4dc58c6d95280e51195507dcfba00872e4e42349e9207294087c7833a",
     "translated_to": "ru"
+  },
+  {
+    "id": "979679",
+    "slug": "illegal-paragliding-leaves-british-tourist-injured-on-krabi-cliff",
+    "date": "2026-01-29T16:36:25",
+    "link": "https://thethaiger.com/news/krabi/illegal-paragliding-leaves-british-tourist-injured-on-krabi-cliff",
+    "title": "В результате незаконного полета на параплане британский турист получил травму на скале Краби",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-29T162926.319.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T163055.171.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T163126.253.jpg"
+    ],
+    "posted": false,
+    "hash": "9657fca85a68874d1bb3a61dda8e1587a46ddbc15340e903b1f5ea108ee38d42",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979675",
+    "slug": "royal-thai-police-warning-traffic-rule-2026",
+    "date": "2026-01-29T16:20:55",
+    "link": "https://thethaiger.com/news/national/royal-thai-police-warning-traffic-rule-2026",
+    "title": "Королевская полиция Таиланда вводит правило дорожного движения «Предупреждай в первую очередь» с начала 2026 года",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Gemini_Generated_Image_7flhh37flhh37flh.jpg"
+    ],
+    "posted": false,
+    "hash": "edd41f54a141b1cca54a7ac49aa92a77850f5f366af3bbe6e9958b08d5a2a991",
+    "translated_to": "ru"
   }
 ]
