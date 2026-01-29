@@ -11328,5 +11328,138 @@
     "posted": false,
     "hash": "b986f0aae159700621547cecb4f40aa632e2530e5fdc9554bdf89e7c9476c14e",
     "translated_to": "ru"
+  },
+  {
+    "id": "979569",
+    "slug": "airasia-leaves-23-passengers-behind-on-bus-cites-miscommunication",
+    "date": "2026-01-29T11:37:02",
+    "link": "https://thethaiger.com/news/national/airasia-leaves-23-passengers-behind-on-bus-cites-miscommunication",
+    "title": "AirAsia оставила в автобусе 23 пассажира, ссылаясь на недопонимание",
+    "text_file": "content.ru.txt",
+    "images": [
+      "airasia-2.jpg"
+    ],
+    "posted": false,
+    "hash": "83706de1871febff46cbe3dd19c391aa51f98271434935782e36fcd37dd8a109",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979512",
+    "slug": "thailand-video-news-29-01-2026",
+    "date": "2026-01-29T11:32:21",
+    "link": "https://thethaiger.com/video-podcasts/thailand-video-news-29-01-2026",
+    "title": "Новости Таиланда | Бангкок будет продвигать работу на дому из-за резкого роста PM2,5, мужчина в Аюттхая избежал травм после того, как шальные пули попали в его подушку",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Web-29-Jan.jpg"
+    ],
+    "posted": false,
+    "hash": "f8980c3573037c69e11aa22ef0bcc90352afa2a47e6980ee972c097edb58ec66",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979534",
+    "slug": "pattaya-influencer-police-insult-mocking-locals",
+    "date": "2026-01-29T11:16:30",
+    "link": "https://thethaiger.com/news/national/pattaya-influencer-police-insult-mocking-locals",
+    "title": "Иностранный влиятельный человек оказался под огнем критики после оскорбления полиции в Паттайе",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-2026-01-29T105726.987.jpg",
+      "สำเนาของ-23-34-2026-01-29T110110.069.jpg"
+    ],
+    "posted": false,
+    "hash": "0c5b2873a0ae72863f781bb541a23f02b7208cea4582d801f80ebd688bbb2fd2",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979548",
+    "slug": "bot-flags-suspicious-cash-withdrawals-tightens-online-gold-trading-rules",
+    "date": "2026-01-29T11:03:41",
+    "link": "https://thethaiger.com/news/national/bot-flags-suspicious-cash-withdrawals-tightens-online-gold-trading-rules",
+    "title": "BoT отмечает подозрительное снятие наличных и ужесточает правила онлайн-торговли золотом",
+    "text_file": "content.ru.txt",
+    "images": [
+      "bot-2.jpg"
+    ],
+    "posted": false,
+    "hash": "44816b624883628928c93d1e7a49cfea5956072e13e31da34b7128ff71b1d796",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979543",
+    "slug": "thai-singer-breaks-down-on-stage-after-father-critically-injured-in-car-accident",
+    "date": "2026-01-29T11:01:51",
+    "link": "https://thethaiger.com/news/national/thai-singer-breaks-down-on-stage-after-father-critically-injured-in-car-accident",
+    "title": "Тайский певец сломался на сцене после того, как его отец серьезно пострадал в автокатастрофе",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-29T104512.359.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T104740.601.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T105448.647.jpg"
+    ],
+    "posted": false,
+    "hash": "3e9e4335fa852eadc857395cfeafdf38a36a787bb72258f3908b5a47068c658c",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979524",
+    "slug": "pakistani-man-caught-and-beaten-for-stealing-cannabis-in-phuket",
+    "date": "2026-01-29T10:16:36",
+    "link": "https://thethaiger.com/news/phuket/pakistani-man-caught-and-beaten-for-stealing-cannabis-in-phuket",
+    "title": "Пакистанца поймали и избили за кражу марихуаны на Пхукете",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-29T094553.062.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T094627.291.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T094652.140.jpg"
+    ],
+    "posted": false,
+    "hash": "cd3e9b5ef8f4b694c4ad0ac7ac547dda0fb1e844695c9750419de0a10d4635e1",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979514",
+    "slug": "buriram-woman-fled-abuse-not-child-abandonment",
+    "date": "2026-01-29T10:04:57",
+    "link": "https://thethaiger.com/news/national/buriram-woman-fled-abuse-not-child-abandonment",
+    "title": "Семья утверждает, что женщина из Бурирама бежала от жестокого обращения, а не от отказа от ребенка",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-2026-01-29T095948.398.jpg"
+    ],
+    "posted": false,
+    "hash": "76690024ec113bfef49787e0dde86a82b5c566f488f90430d1aa8622da92f547",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979506",
+    "slug": "chinese-man-runs-car-over-friend-and-kills-him-outside-pattaya-hotel",
+    "date": "2026-01-29T09:40:33",
+    "link": "https://thethaiger.com/news/national/chinese-man-runs-car-over-friend-and-kills-him-outside-pattaya-hotel",
+    "title": "Китаец сбил друга на машине и убил его возле отеля в Паттайе",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-29T092354.393.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T092433.527.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T093018.048.jpg"
+    ],
+    "posted": false,
+    "hash": "bc0e2a8355596958c8ce96ca901535486b7b8a6a5fd9f141ff303084f898a842",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979499",
+    "slug": "ayutthaya-stabbing-railway-station",
+    "date": "2026-01-29T09:09:38",
+    "link": "https://thethaiger.com/news/national/ayutthaya-stabbing-railway-station",
+    "title": "Мужчина получил ножевое ранение после предполагаемого сексуального запроса на железнодорожном вокзале Аюттхая",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-2026-01-29T090629.406.jpg"
+    ],
+    "posted": false,
+    "hash": "d390d833c74cf423f621dcf3720b131e5105615763ef0e960eb8effab384388b",
+    "translated_to": "ru"
   }
 ]
