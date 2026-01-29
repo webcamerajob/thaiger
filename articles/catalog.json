@@ -11614,5 +11614,35 @@
     "posted": false,
     "hash": "edd41f54a141b1cca54a7ac49aa92a77850f5f366af3bbe6e9958b08d5a2a991",
     "translated_to": "ru"
+  },
+  {
+    "id": "979702",
+    "slug": "pattaya-taxi-rider-criticised-after-arguing-with-russian-women-over-fare",
+    "date": "2026-01-29T17:47:30",
+    "link": "https://thethaiger.com/news/pattaya/pattaya-taxi-rider-criticised-after-arguing-with-russian-women-over-fare",
+    "title": "Таксиста в Паттайе раскритиковали за спор с русскими женщинами из-за платы за проезд",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-29T172536.199.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T172813.564.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T172907.835.jpg"
+    ],
+    "posted": false,
+    "hash": "1511d5eba694e3d8726e23426645d524f0f33d8ccec24b5fc2b34a122862b96f",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979694",
+    "slug": "new-ant-species-trang-rubber-plantation-discovery",
+    "date": "2026-01-29T17:18:40",
+    "link": "https://thethaiger.com/news/national/new-ant-species-trang-rubber-plantation-discovery",
+    "title": "Исследователи обнаружили новые виды муравьев на каучуковой плантации Транга",
+    "text_file": "content.ru.txt",
+    "images": [
+      "51e49ccb03e967f71b90991699ed94c4.jpg"
+    ],
+    "posted": false,
+    "hash": "de65bf35a4c086a47ab3c50483aa797dc43c4f4ffa9c3129a769ba5b53a08813",
+    "translated_to": "ru"
   }
 ]
