@@ -11475,5 +11475,52 @@
     "posted": false,
     "hash": "44024be612db5bf92552c6efed15a8eb05c0bf8ff14e809c3c7b85b893f9f5cb",
     "translated_to": "ru"
+  },
+  {
+    "id": "979616",
+    "slug": "4-year-old-boy-brutally-assaulted-by-grandmother-boyfriend",
+    "date": "2026-01-29T14:10:00",
+    "link": "https://thethaiger.com/news/national/4-year-old-boy-brutally-assaulted-by-grandmother-boyfriend",
+    "title": "4-летний мальчик жестоко избил парень бабушки",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-29T135546.728.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T135624.991.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T140015.658.jpg"
+    ],
+    "posted": false,
+    "hash": "51b711621d12ed4637706613b2bb62f48d028d024fbfa23feddf413f24b6c230",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979604",
+    "slug": "thai-air-force-plane-crash-chiang-mai",
+    "date": "2026-01-29T13:51:30",
+    "link": "https://thethaiger.com/news/national/thai-air-force-plane-crash-chiang-mai",
+    "title": "Двое погибших в результате крушения самолета Королевских ВВС Таиланда в Чиангмае",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-2026-01-29T134519.755.jpg"
+    ],
+    "posted": false,
+    "hash": "0c167ba737599188719bcb8a3cb40bac0a41a67435d3533bc3f4de637e8d12e3",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979567",
+    "slug": "thai-woman-vanishes-after-travelling-to-laos-with-american-ex-husband",
+    "date": "2026-01-29T13:24:34",
+    "link": "https://thethaiger.com/news/national/thai-woman-vanishes-after-travelling-to-laos-with-american-ex-husband",
+    "title": "Тайская женщина исчезла после поездки в Лаос с бывшим мужем-американцем",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-29T115206.186.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T115715.787.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T115755.708.jpg",
+      "Thaiger-Cover-Picture-2026-01-29T115915.103.jpg"
+    ],
+    "posted": false,
+    "hash": "2ac0d6c1c7a25d1e6e6d16b94ab9f0945b9f071a1b4e9200d0d8f2cac2f5524f",
+    "translated_to": "ru"
   }
 ]
