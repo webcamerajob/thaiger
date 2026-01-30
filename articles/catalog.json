@@ -10487,21 +10487,6 @@
     "translated_to": "ru"
   },
   {
-    "id": "978427",
-    "slug": "man-claims-spirit-possession-in-fatal-stabbing-of-grandmother",
-    "date": "2026-01-25T13:37:11",
-    "link": "https://thethaiger.com/news/national/man-claims-spirit-possession-in-fatal-stabbing-of-grandmother",
-    "title": "Мужчина заявил, что одержим духом, нанеся ножевое ранение бабушке",
-    "text_file": "content.ru.txt",
-    "images": [
-      "kill-grandma-2.jpg",
-      "knife-used.jpg"
-    ],
-    "posted": false,
-    "hash": "0f32afb4bcef86c2ac4b9167c6e078f425403fc405b566dd071475edfd4c6d1d",
-    "translated_to": "ru"
-  },
-  {
     "id": "978525",
     "slug": "annual-wat-phra-that-phanom-festival-unites-thai-and-lao-devotees",
     "date": "2026-01-25T13:19:57",
@@ -11930,6 +11915,21 @@
     ],
     "posted": false,
     "hash": "ef5e4fe87bdb99676fbfec1eac5ccb0710a6e2d21a2bccf4f690829d5fb02a4b",
+    "translated_to": "ru"
+  },
+  {
+    "id": "978427",
+    "slug": "man-claims-spirit-possession-in-fatal-stabbing-of-grandmother",
+    "date": "2026-01-25T13:37:11",
+    "link": "https://thethaiger.com/news/national/man-claims-spirit-possession-in-fatal-stabbing-of-grandmother",
+    "title": "Мужчина заявил, что одержим духом, нанеся ножевое ранение бабушке",
+    "text_file": "content.ru.txt",
+    "images": [
+      "kill-grandma-2.jpg",
+      "knife-used.jpg"
+    ],
+    "posted": false,
+    "hash": "10baf16eb98072cb6d491e514382eaf250f9f7176e23b6b601cf1ccc07a8db4a",
     "translated_to": "ru"
   }
 ]
