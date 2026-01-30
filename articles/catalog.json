@@ -11792,5 +11792,53 @@
     "posted": false,
     "hash": "6e02d479939d7789b4f328399a1936cfd8606381398419f697de038732320264",
     "translated_to": "ru"
+  },
+  {
+    "id": "979883",
+    "slug": "pattaya-rolls-out-colour-coded-beach-umbrellas-to-boost-seaside-views",
+    "date": "2026-01-30T14:02:48",
+    "link": "https://thethaiger.com/news/national/pattaya-rolls-out-colour-coded-beach-umbrellas-to-boost-seaside-views",
+    "title": "Паттайя разворачивает пляжные зонтики с цветовой кодировкой, чтобы улучшить вид на море",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-30T134738.090.jpg",
+      "Thaiger-Cover-Picture-2026-01-30T135418.863.jpg",
+      "Thaiger-Cover-Picture-2026-01-30T135518.444.jpg"
+    ],
+    "posted": false,
+    "hash": "64e30b9ca975d5ba376b35d6874a7b88f49fa683bf78f7b6f649fc8440f2ad31",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979904",
+    "slug": "phuket-diner-berates-children-in-buffet",
+    "date": "2026-01-30T13:57:42",
+    "link": "https://thethaiger.com/news/national/phuket-diner-berates-children-in-buffet",
+    "title": "Мужчина на Пхукете ругает детей в буфете, его окликают",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-2026-01-30T135136.760.jpg"
+    ],
+    "posted": false,
+    "hash": "3dfc47d4def37d7aba302cc79ce121c7ef4a4842772b41757ff97e422709f587",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979716",
+    "slug": "thailand-reforms-business-visa-and-social-laws-to-attract-global-expats",
+    "date": "2026-01-30T13:30:32",
+    "link": "https://thethaiger.com/hot-news/tourism/thailand-reforms-business-visa-and-social-laws-to-attract-global-expats",
+    "title": "Таиланд реформирует бизнес-, визовое и социальное законодательство, чтобы привлечь эмигрантов со всего мира",
+    "text_file": "content.ru.txt",
+    "images": [
+      "LGBT-marriage.jpg",
+      "business-law-reform.jpg",
+      "cryptocurrency.jpg",
+      "thai-politics.jpg",
+      "visa-application.jpg"
+    ],
+    "posted": false,
+    "hash": "2e48ce97a9760011ebe214681965aff18a6d489b7b02cfc74428b8c90bc157d5",
+    "translated_to": "ru"
   }
 ]
