@@ -11871,5 +11871,65 @@
     "posted": false,
     "hash": "3aa51e25034d72ab9ab2d6e87d13ef0eb28c34b674e56b20a105700bc98dd6b3",
     "translated_to": "ru"
+  },
+  {
+    "id": "979991",
+    "slug": "thai-soldiers-injured-border-explosion",
+    "date": "2026-01-30T16:59:46",
+    "link": "https://thethaiger.com/news/national/thai-soldiers-injured-border-explosion",
+    "title": "В результате внезапного взрыва ранения получили два тайских солдата недалеко от бывшей зоны конфликта",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-2026-01-30T165332.224.jpg"
+    ],
+    "posted": false,
+    "hash": "9850f5d8885c8220ae09d035437bc44ea40aeedd22880369de3154e7c54ed7d2",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979984",
+    "slug": "truck-snags-wires-and-pulls-down-70-power-poles-in-samut-prakan",
+    "date": "2026-01-30T16:44:33",
+    "link": "https://thethaiger.com/news/national/truck-snags-wires-and-pulls-down-70-power-poles-in-samut-prakan",
+    "title": "Грузовик зацепил провода и снес 70 опор электропередач в Самутпракане",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-30T163737.506.jpg",
+      "Thaiger-Cover-Picture-2026-01-30T163755.886.jpg",
+      "Thaiger-Cover-Picture-2026-01-30T163826.056.jpg"
+    ],
+    "posted": false,
+    "hash": "18e5c5e02bea13e13248c7ea67f791abcf098607df8f1076a56e7224247f04a8",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979967",
+    "slug": "filmer-criticised-for-not-helping-collapsed-taxi-driver-in-ayutthaya",
+    "date": "2026-01-30T16:21:24",
+    "link": "https://thethaiger.com/news/national/filmer-criticised-for-not-helping-collapsed-taxi-driver-in-ayutthaya",
+    "title": "Филмера раскритиковали за то, что он не помог упавшему в обморок таксисту в Аюттхае",
+    "text_file": "content.ru.txt",
+    "images": [
+      "สำเนาของ-23-34-2026-01-30T161619.272.jpg"
+    ],
+    "posted": false,
+    "hash": "43509a039e07bf22ebb6182e9fdb439dd988fc6f6da5fdd1010aa86be55918e1",
+    "translated_to": "ru"
+  },
+  {
+    "id": "979970",
+    "slug": "chiang-rai-family-exhumes-body-after-dead-son-walks-back-home",
+    "date": "2026-01-30T16:07:29",
+    "link": "https://thethaiger.com/news/national/chiang-rai-family-exhumes-body-after-dead-son-walks-back-home",
+    "title": "Семья Чианг Рая эксгумирует тело после того, как «мертвый» сын вернулся домой",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-30T155814.051.jpg",
+      "Thaiger-Cover-Picture-2026-01-30T155833.171.jpg",
+      "Thaiger-Cover-Picture-2026-01-30T155858.143.jpg"
+    ],
+    "posted": false,
+    "hash": "ef5e4fe87bdb99676fbfec1eac5ccb0710a6e2d21a2bccf4f690829d5fb02a4b",
+    "translated_to": "ru"
   }
 ]
