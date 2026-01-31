@@ -24,8 +24,8 @@ CATALOG_PATH = OUTPUT_DIR / "catalog.json"
 MAX_RETRIES = 3
 BASE_DELAY = 1.0
 
-MAX_POSTED_RECORDS = 100 
-FETCH_DEPTH = 100 
+MAX_POSTED_RECORDS = 300 
+FETCH_DEPTH = 10
 
 # --- НАСТРОЙКИ СЕТИ ---
 SCRAPER = cffi_requests.Session(
