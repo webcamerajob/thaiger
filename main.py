@@ -11,6 +11,7 @@ import fcntl
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Set
+from datetime import datetime
 
 import requests 
 from bs4 import BeautifulSoup
@@ -44,7 +45,7 @@ BAD_RE = re.compile(r"[\u200b-\u200f\uFEFF\u200E\u00A0]")
 # --- ПРЯМОЙ ПЕРЕВОДЧИК (GTX) ---
 def translate_text(text: str, to_lang: str = "ru") -> str:
     if not text: return ""
-    
+
     chunks = []
     current_chunk = ""
     for paragraph in text.split('\n'):
@@ -61,11 +62,11 @@ def translate_text(text: str, to_lang: str = "ru") -> str:
             chunks.append(current_chunk)
             current_chunk = paragraph + "\n"
     if current_chunk: chunks.append(current_chunk)
-    
+
     translated_parts = []
     url = "https://translate.googleapis.com/translate_a/single"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"}
-    
+
     for chunk in chunks:
         if not chunk.strip():
             translated_parts.append("")
@@ -86,7 +87,7 @@ def translate_text(text: str, to_lang: str = "ru") -> str:
         except Exception as e:
             logging.error(f"⚠️ Сбой перевода: {e}")
             translated_parts.append(chunk)
-            
+
     return "\n".join(translated_parts)
 
 # --- ОЧИСТКА ---
@@ -163,21 +164,21 @@ def extract_img_url(img_tag: Any) -> Optional[str]:
                     w_val = int(match.group(2))
                     u_val = match.group(1)
                     if w_val >= 400: links.append((w_val, u_val))
-            
+
             if links:
                 # Берем самую большую
                 best_link = sorted(links, key=lambda x: x[0], reverse=True)[0][1]
                 if not is_junk(best_link): 
                     return best_link.split('?')[0]
         except Exception: pass
-    
+
     # 3. Fallback: Обычные атрибуты
     attrs = ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]
     for attr in attrs:
         if val := img_tag.get(attr):
             clean_val = val.split()[0].split(',')[0].split('?')[0]
             if not is_junk(clean_val): return clean_val
-            
+
     return None
 
 def save_image(url, folder):
@@ -213,7 +214,7 @@ def fetch_posts(url, cid, limit):
 def parse_and_save(post, lang, stopwords):
     time.sleep(2)
     aid, slug, link = str(post["id"]), post["slug"], post.get("link")
-    
+
     raw_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
     title = sanitize_text(raw_title)
 
@@ -240,7 +241,7 @@ def parse_and_save(post, lang, stopwords):
     logging.info(f"Processing ID={aid}: {title[:30]}...")
 
     soup = BeautifulSoup(html_txt, "html.parser")
-    
+
     for r in soup.find_all("div", class_="post-widget-thumbnail"): r.decompose()
     for j in soup.find_all(["span", "div", "script", "style", "iframe"]):
         if not hasattr(j, 'attrs') or j.attrs is None: continue 
@@ -251,10 +252,10 @@ def parse_and_save(post, lang, stopwords):
     if c_div := soup.find("div", class_="entry-content"):
         for r in c_div.find_all(["ul", "ol", "div"], class_=re.compile(r"rp4wp|related|ad-")): r.decompose()
         paras = [sanitize_text(p.get_text(strip=True)) for p in c_div.find_all("p")]
-    
+
     # Сбор контента
     raw_txt_clean = BAD_RE.sub("", "\n\n".join(paras))
-    
+
     # --- СБОР КАРТИНОК (С УМНЫМ ФИЛЬТРОМ) ---
     srcs = set()
     # 1. Lightbox
@@ -262,19 +263,19 @@ def parse_and_save(post, lang, stopwords):
         if h := link_tag.get("href"): 
             # Даже из лайтбокса проверяем на мусор (бывают гифки-лоадеры)
             if "gif" not in h.lower(): srcs.add(h)
-    
+
     # 2. Картинки из текста (прогоняем через умный extract_img_url)
     if c_div:
         for img in c_div.find_all("img"):
             if u := extract_img_url(img): srcs.add(u)
-    
+
     images = []
     if srcs:
         with ThreadPoolExecutor(5) as ex:
             futs = {ex.submit(save_image, u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): u for u in list(srcs)[:10]}
             for f in as_completed(futs):
                 if p:=f.result(): images.append(p)
-    
+
     # 3. Fallback на Featured (но с проверкой)
     if not images and "_embedded" in post and (m:=post["_embedded"].get("wp:featuredmedia")):
         if isinstance(m, list) and (u:=m[0].get("source_url")):
@@ -295,7 +296,7 @@ def parse_and_save(post, lang, stopwords):
         DELIMITER = " ||| " 
         combined_text = f"{title}{DELIMITER}{raw_txt_clean}"
         translated_combined = translate_text(combined_text, lang)
-        
+
         if translated_combined:
             if DELIMITER in translated_combined:
                 parts = translated_combined.split(DELIMITER, 1)
@@ -312,12 +313,12 @@ def parse_and_save(post, lang, stopwords):
             translated_lang = lang
 
     final_title = sanitize_text(final_title)
-    
+
     art_dir = OUTPUT_DIR / f"{aid}_{slug}"
     art_dir.mkdir(parents=True, exist_ok=True)
-    
+
     (art_dir / "content.txt").write_text(raw_txt_clean, encoding="utf-8")
-    
+
     meta = {
         "id": aid, "slug": slug, "date": post.get("date"), "link": link,
         "title": final_title, "text_file": "content.txt",
@@ -346,27 +347,41 @@ def main():
     try:
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         cleanup_old_articles(Path(args.posted_state_file), OUTPUT_DIR)
-        
+
         cid = fetch_cat_id(args.base_url, args.slug)
+        # Получаем 100 последних постов (от новых к старым)
         posts = fetch_posts(args.base_url, cid, FETCH_DEPTH)
-        
+
         posted = load_posted_ids(Path(args.posted_state_file))
         stop = load_stopwords(Path(args.stopwords_file))
         catalog = []
         if CATALOG_PATH.exists():
             with open(CATALOG_PATH, 'r') as f: catalog=json.load(f)
 
+        # 1. Фильтруем только новые посты
+        new_posts = [p for p in posts if str(p["id"]) not in posted]
+        
+        logging.info(f"Всего постов: {len(posts)}, новых: {len(new_posts)}")
+        
+        if not new_posts:
+            print("NEW_ARTICLES_STATUS:false")
+            return
+
+        # 2. Реверсируем порядок: из [новые, ..., старые] в [старые, ..., новые]
+        new_posts.reverse()
+        
+        # 3. Берем лимит (самые старые из новых)
+        posts_to_process = new_posts[:args.limit]
+        
         processed = []
         count = 0
-        
-        logging.info(f"В API {len(posts)} постов. Ищем новые...")
-        
-        for post in posts:
-            if count >= args.limit: 
-                logging.info(f"Лимит {args.limit} достигнут."); break
-            
-            if str(post["id"]) in posted: continue
-                
+
+        logging.info(f"Будем обрабатывать {len(posts_to_process)} постов (от старых к новым)...")
+
+        for post in posts_to_process:
+            if count >= args.limit:
+                break
+
             if meta := parse_and_save(post, args.lang, stop):
                 processed.append(meta)
                 count += 1
@@ -375,8 +390,16 @@ def main():
             for m in processed:
                 catalog = [i for i in catalog if i.get("id") != m["id"]]
                 catalog.append(m)
+            
+            # Сортируем каталог по ID (ID обычно растут со временем, меньший ID = старше)
+            try:
+                catalog.sort(key=lambda x: int(x.get("id", 0)))
+            except:
+                pass
+            
             with open(CATALOG_PATH, "w", encoding="utf-8") as f:
                 json.dump(catalog, f, ensure_ascii=False, indent=2)
+            
             print("NEW_ARTICLES_STATUS:true")
         else:
             print("NEW_ARTICLES_STATUS:false")
