@@ -24,7 +24,7 @@ CATALOG_PATH = OUTPUT_DIR / "catalog.json"
 MAX_RETRIES = 3
 BASE_DELAY = 1.0
 MAX_POSTED_RECORDS = 500 # Увеличили память
-FETCH_DEPTH = 100
+FETCH_DEPTH = 500
 
 # Константа для порта WARP (Socks5 с удаленным DNS)
 WARP_PROXY = "socks5h://127.0.0.1:40000"
