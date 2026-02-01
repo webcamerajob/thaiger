@@ -14,8 +14,8 @@ from PIL import Image
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # --- КОНФИГУРАЦИЯ ---
-# Лимит записей в истории (храним 5000 последних для защиты от дублей)
-MAX_POSTED_RECORDS = 5000 
+# Лимит записей в истории (храним 500 последних для защиты от дублей)
+MAX_POSTED_RECORDS = 500 
 WATERMARK_SCALE = 0.35
 
 # Увеличенные таймауты для стабильной работы через прокси/WARP
