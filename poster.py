@@ -124,8 +124,8 @@ async def send_media_group(client: httpx.AsyncClient, token: str, chat_id: str, 
     
     data = {
         "chat_id": chat_id, 
-        "media": json.dumps(media),
-        "disable_notification": True  # Отключает звук уведомления для альбома
+        "media": json.dumps(media)
+#        "disable_notification": True  # Отключает звук уведомления для альбома
     }
     return await _post_with_retry(client, "POST", url, data, files)
 
@@ -135,8 +135,8 @@ async def send_message(client: httpx.AsyncClient, token: str, chat_id: str, text
         "chat_id": chat_id, 
         "text": text, 
         "parse_mode": "HTML", 
-        "disable_web_page_preview": True,
-        "disable_notification": True  # Отключает звук уведомления для текстового сообщения
+        "disable_web_page_preview": True
+#        "disable_notification": True  # Отключает звук уведомления для текстового сообщения
     }
     if kwargs.get("reply_markup"):
         data["reply_markup"] = json.dumps(kwargs["reply_markup"])
