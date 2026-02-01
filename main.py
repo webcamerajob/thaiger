@@ -245,7 +245,7 @@ def fetch_posts(url, cid, limit):
             
     return all_posts
 
-# --- ПАРСИНГ (БЕЗОПАСНАЯ ВЕРСИЯ) ---
+# --- ПАРСИНГ (ФИНАЛЬНАЯ ЧИСТКА) ---
 def parse_and_save(post, lang, stopwords):
     time.sleep(2)
     aid, slug, link = str(post["id"]), post["slug"], post.get("link")
@@ -283,9 +283,7 @@ def parse_and_save(post, lang, stopwords):
     soup = BeautifulSoup(html_txt, "html.parser")
 
     # 4. ПОДГОТОВКА HTML
-    
-    # Удаляем технические теги
-    for tag in soup.find_all(["script", "style", "iframe", "noscript", "form", "button", "input", "meta", "link", "svg"]):
+    for tag in soup.find_all(["script", "style", "iframe", "noscript", "form", "button", "input", "meta", "link", "svg", "nav"]):
         tag.decompose()
 
     c_div = soup.find("div", class_="entry-content")
@@ -293,45 +291,63 @@ def parse_and_save(post, lang, stopwords):
         c_div = soup.find("div", class_="td-post-content")
 
     if c_div:
-        # СПИСОК МУСОРА
+        # Расширенный список классов-паразитов (включая виджеты Recent/Latest)
         junk_classes = [
             "post-widget-thumbnail", "related-posts", "ad-container", "share-buttons", 
             "meta-info", "jp-relatedposts", "mc_embed_signup", "widget_text", 
             "sharedaddy", "td-a-rec", "td-g-rec", "addthis_tool", "rp4wp-related-posts",
-            "zeen-10-related-posts", "yarpp-related"
+            "zeen-10-related-posts", "yarpp-related", "widget_recent_entries", 
+            "widget_recent_comments", "td_block_wrap", "td-trending-now", "entry-footer"
         ]
         
-        # --- ИСПРАВЛЕНИЕ: Безопасный перебор тегов ---
-        # Ищем все теги и проверяем атрибуты перед чтением
+        # Безопасная очистка по классам
         for tag in c_div.find_all(True):
-            # Защита от краша: если у тега нет атрибутов или attrs=None
-            if not hasattr(tag, 'attrs') or not tag.attrs:
-                continue
-            
-            # Безопасно получаем классы
+            if not hasattr(tag, 'attrs') or not tag.attrs: continue
             classes = tag.get("class", [])
-            
-            # Если классы есть, проверяем на мусор
             if classes and any(j in c for c in classes for j in junk_classes):
                 tag.decompose()
 
-        # Удаляем "Читайте также" по тексту
-        for tag in c_div.find_all(["p", "h3", "h4", "div", "span"]):
+        # --- НОВАЯ ЛОГИКА: УДАЛЕНИЕ БЛОКОВ "RECENT/LATEST" ---
+        # Слова-маркеры, после которых идет мусор
+        bad_headers = [
+            "also read", "read also", "related", "advertisement", 
+            "recent", "latest", "trending", "most read", 
+            "you might also like", "more from", "connect with us"
+        ]
+
+        # Ищем заголовки h3, h4, h5, p, div
+        for tag in c_div.find_all(["h3", "h4", "h5", "p", "div", "span"]):
             text = tag.get_text(strip=True).lower()
-            if text.startswith("also read:") or text.startswith("read also:") or text.startswith("related:") or text == "advertisement":
+            
+            # Проверка 1: Явные фразы (короткие, до 40 символов, чтобы не удалить заголовок внутри статьи)
+            if len(text) < 40 and any(h in text for h in bad_headers):
+                # Если нашли "Recent", удаляем сам заголовок
                 tag.decompose()
-            if tag.name == 'p' and tag.find('a') and len(tag.get_text(strip=True)) < 100:
-                a_tag = tag.find('a')
-                if len(a_tag.get_text(strip=True)) >= len(text) - 5:
+                
+                # И проверяем СЛЕДУЮЩИЙ элемент. Если это список ссылок - удаляем и его.
+                # (Часто Recent идет как <h3>Recent</h3><ul>...</ul>)
+                sibling = tag.find_next_sibling()
+                if sibling and sibling.name in ["ul", "ol", "div"]:
+                    sibling.decompose()
+                continue
+
+            # Проверка 2: Абзац, состоящий только из ссылки (обычно перелинковка)
+            if tag.name == 'p' and tag.find('a') and len(text) < 100:
+                a_text = tag.find('a').get_text(strip=True)
+                # Если текст ссылки почти равен тексту всего абзаца
+                if len(a_text) >= len(text) - 5:
                     tag.decompose()
 
     # 5. СБОР ТЕКСТА
     blocks = []
     if c_div:
+        # recursive=False важно, чтобы не брать вложенный мусор, если он остался
         for tag in c_div.find_all(["p", "h2", "h3", "ul", "ol", "blockquote"], recursive=False):
+            
             if tag.name in ["h2", "h3"]:
                 t = tag.get_text(strip=True)
-                if t and len(t) > 3: 
+                # Игнорируем заголовки, похожие на навигацию, если они выжили
+                if t and len(t) > 3 and "recent" not in t.lower(): 
                     blocks.append(f"\n<b>{t}</b>")
             
             elif tag.name in ["ul", "ol"]:
@@ -345,8 +361,14 @@ def parse_and_save(post, lang, stopwords):
 
             elif tag.name == "p":
                 t = tag.get_text(separator=" ", strip=True)
-                if t.lower().startswith("photo:") or t.lower().startswith("source:"):
+                # Фильтр для подписей к фото
+                lower_t = t.lower()
+                if lower_t.startswith("photo:") or lower_t.startswith("source:") or lower_t.startswith("courtesy:"):
                     continue
+                # Фильтр остатков "read more"
+                if "read more" in lower_t or "click here" in lower_t:
+                    continue
+                    
                 if t: blocks.append(t)
 
     raw_txt_clean = "\n\n".join(blocks)
@@ -375,7 +397,7 @@ def parse_and_save(post, lang, stopwords):
                 if p:=save_image(u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): images.append(p)
 
     if not images and len(raw_txt_clean) < 100:
-        logging.warning(f"⚠️ ID={aid}: Пустой контент/нет картинок. Skip.")
+        logging.warning(f"⚠️ ID={aid}: Пустой контент. Skip.")
         return None
 
     # 7. ПЕРЕВОД
