@@ -347,6 +347,35 @@
     "translated_to": "ru"
   },
   {
+    "id": "980111",
+    "slug": "thailand-marks-queen-sirikits-100-day-memorial-with-nationwide-ceremonies",
+    "date": "2026-02-01T11:09:51",
+    "link": "https://thethaiger.com/news/national/thailand-marks-queen-sirikits-100-day-memorial-with-nationwide-ceremonies",
+    "title": "Таиланд отмечает 100-дневную годовщину памяти королевы Сирикит общенациональными церемониями",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-News-Featired-Image-1-1.webp"
+    ],
+    "posted": false,
+    "hash": "a13c86bf9221e4b05859dfeb36900b8618d128a669418fb78d9d78f689518e91",
+    "translated_to": "ru"
+  },
+  {
+    "id": "980126",
+    "slug": "woman-exposes-lawyer-taking-secret-photos-in-chon-buri-restroom",
+    "date": "2026-02-01T11:42:02",
+    "link": "https://thethaiger.com/news/national/woman-exposes-lawyer-taking-secret-photos-in-chon-buri-restroom",
+    "title": "Женщина разоблачила адвоката, делавшего секретные фотографии в туалете Чонбури",
+    "text_file": "content.ru.txt",
+    "images": [
+      "card-e1769920851297.jpg",
+      "phone-e1769920890872.jpg"
+    ],
+    "posted": false,
+    "hash": "38961e1033edccffb0dd4ab193638a5c5524da959c9d272dd85077ead5111657",
+    "translated_to": "ru"
+  },
+  {
     "id": "980141",
     "slug": "alcohol-ban-in-effect-nationwide-for-advance-voting",
     "date": "2026-02-01T09:53:11",
