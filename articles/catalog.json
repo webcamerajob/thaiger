@@ -331,5 +331,33 @@
     "posted": false,
     "hash": "9850f5d8885c8220ae09d035437bc44ea40aeedd22880369de3154e7c54ed7d2",
     "translated_to": "ru"
+  },
+  {
+    "id": "980107",
+    "slug": "chon-buri-hotel-owner-confronts-police-over-released-russian-youths",
+    "date": "2026-02-01T10:28:49",
+    "link": "https://thethaiger.com/news/national/chon-buri-hotel-owner-confronts-police-over-released-russian-youths",
+    "title": "Владелец отеля Чонбури противостоит полиции из-за освобожденных российских молодых людей",
+    "text_file": "content.ru.txt",
+    "images": [
+      "trespass-1.jpg"
+    ],
+    "posted": false,
+    "hash": "134893ba70e386e7118d46cf4f148c78713977aac83f9d5bb5775dbf99930c59",
+    "translated_to": "ru"
+  },
+  {
+    "id": "980141",
+    "slug": "alcohol-ban-in-effect-nationwide-for-advance-voting",
+    "date": "2026-02-01T09:53:11",
+    "link": "https://thethaiger.com/news/national/alcohol-ban-in-effect-nationwide-for-advance-voting",
+    "title": "Запрет на алкоголь сегодня действует по всей стране для предварительного голосования",
+    "text_file": "content.ru.txt",
+    "images": [
+      "alcohol-ban.jpg"
+    ],
+    "posted": false,
+    "hash": "4aa063246b735a339dae27bb268427054a5297e5c1766b431a974ef89f4d469e",
+    "translated_to": "ru"
   }
 ]
