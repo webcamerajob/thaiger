@@ -2,7 +2,7 @@ name: Parse & Post (Thaiger)
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
-  
+
 permissions:
   contents: write
 
@@ -11,7 +11,7 @@ on:
   schedule:
     - cron: '30 22-23 * * *'
     - cron: '30 0-11 * * *'
-    
+
 env:
   POST_DELAY: 10
   BATCH_LIMIT: 10
@@ -21,33 +21,31 @@ env:
 jobs:
   build-and-publish:
     name: Parse and Publish (Thaiger)
-    runs-on: ubuntu-22.04
-    
+    runs-on: ubuntu-22.04  # Оставляем 22.04 для стабильности WARP
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 1. Сначала включаем WARP (чтобы весь сетевой трафик шел через него)
+      - name: Set up Cloudflare WARP
+        uses: fscarmen/warp-on-actions@v1.3
+        with:
+          stack: ipv4
+
+      # 2. Потом ставим Python (один раз!)
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
+      # 3. Потом ставим библиотеки
       - name: Install requirements
         run: |
           if [ -f requirements-parser.txt ]; then pip install -r requirements-parser.txt; fi
           if [ -f requirements-poster.txt ]; then pip install -r requirements-poster.txt; fi
 
-      - name: Set up Cloudflare WARP
-        uses: fscarmen/warp-on-actions@v1.3
-        with:
-          stack: ipv4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      
-
+      # 4. Запускаем парсер
       - name: Run parser
         id: parse_step
         run: |
@@ -61,6 +59,7 @@ jobs:
           NEW_ARTICLES_STATUS=$(grep "NEW_ARTICLES_STATUS:" parser_output.txt | cut -d: -f2 | tr -d '[:space:]')
           echo "new_articles_found=$NEW_ARTICLES_STATUS" >> $GITHUB_OUTPUT
 
+      # 5. Запускаем постер (если есть новые статьи)
       - name: Run poster
         if: steps.parse_step.outputs.new_articles_found == 'true'
         run: |
@@ -69,6 +68,7 @@ jobs:
             --state-file articles/posted.json \
             --limit $BATCH_LIMIT
 
+      # 6. Сохраняем результат
       - name: Commit updated data files
         run: |
           git config user.name "github-actions[bot]"
