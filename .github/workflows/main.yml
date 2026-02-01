@@ -37,6 +37,17 @@ jobs:
           if [ -f requirements-parser.txt ]; then pip install -r requirements-parser.txt; fi
           if [ -f requirements-poster.txt ]; then pip install -r requirements-poster.txt; fi
 
+      - name: Set up Cloudflare WARP
+        uses: fscarmen/warp-on-actions@v1.3
+        with:
+          stack: ipv4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+
       - name: Run parser
         id: parse_step
         run: |
