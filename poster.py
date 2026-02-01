@@ -13,9 +13,13 @@ from PIL import Image
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-MAX_POSTED_RECORDS = 500 
+# --- КОНФИГУРАЦИЯ ---
+# Лимит записей в истории (храним 5000 последних для защиты от дублей)
+MAX_POSTED_RECORDS = 5000 
 WATERMARK_SCALE = 0.35
-HTTPX_TIMEOUT = Timeout(connect=20.0, read=60.0, write=120.0, pool=10.0)
+
+# Увеличенные таймауты для стабильной работы через прокси/WARP
+HTTPX_TIMEOUT = Timeout(connect=30.0, read=60.0, write=120.0, pool=10.0)
 
 MAX_RETRIES   = 3
 RETRY_DELAY   = 5.0
@@ -54,6 +58,7 @@ def apply_watermark(img_path: Path, scale: float) -> bytes:
         base_img = Image.open(img_path).convert("RGBA")
         base_width, _ = base_img.size
         watermark_path = Path(__file__).parent / "watermark.png"
+        
         if not watermark_path.exists():
             img_byte_arr = BytesIO()
             base_img.convert("RGB").save(img_byte_arr, format='JPEG', quality=90)
@@ -64,12 +69,15 @@ def apply_watermark(img_path: Path, scale: float) -> bytes:
         new_wm_width = int(base_width * scale)
         if new_wm_width <= 0: new_wm_width = 1
         new_wm_height = int(wm_height * (new_wm_width / wm_width))
+        
         resample_filter = getattr(Image.Resampling, "LANCZOS", Image.LANCZOS)
         watermark_img = watermark_img.resize((new_wm_width, new_wm_height), resample=resample_filter)
+        
         overlay = Image.new("RGBA", base_img.size, (0, 0, 0, 0))
         padding = int(base_width * 0.02)
         position = (base_width - new_wm_width - padding, padding)
         overlay.paste(watermark_img, position, watermark_img)
+        
         composite_img = Image.alpha_composite(base_img, overlay).convert("RGB")
         img_byte_arr = BytesIO()
         composite_img.save(img_byte_arr, format='JPEG', quality=90)
@@ -87,30 +95,31 @@ async def _post_with_retry(client: httpx.AsyncClient, method: str, url: str, dat
         except HTTPStatusError as e:
             if e.response.status_code == 429:
                 retry_after = int(e.response.json().get("parameters", {}).get("retry_after", RETRY_DELAY))
-                logging.warning(f"🐢 Rate limited. Ждем {retry_after} сек...")
+                logging.warning(f"🐢 Rate limit. Ждем {retry_after} сек...")
                 await asyncio.sleep(retry_after)
             elif 400 <= e.response.status_code < 500:
-                logging.error(f"❌ Client error {e.response.status_code}: {e.response.text}")
+                logging.error(f"❌ Ошибка Telegram {e.response.status_code}: {e.response.text}")
                 return False
             else:
-                logging.warning(f"⚠️ Server error {e.response.status_code}. Retry {attempt}/{MAX_RETRIES}...")
+                logging.warning(f"⚠️ Ошибка сервера {e.response.status_code}. Попытка {attempt}/{MAX_RETRIES}...")
                 await asyncio.sleep(RETRY_DELAY * attempt)
         except (ReadTimeout, httpx.RequestError) as e:
-            logging.warning(f"⏱️ Network error: {e}. Retry {attempt}/{MAX_RETRIES}...")
+            logging.warning(f"⏱️ Ошибка сети: {e}. Попытка {attempt}/{MAX_RETRIES}...")
             await asyncio.sleep(RETRY_DELAY * attempt)
-    logging.error(f"☠️ Failed to send request to {url} after {MAX_RETRIES} attempts.")
     return False
 
 async def send_media_group(client: httpx.AsyncClient, token: str, chat_id: str, images: List[Path], watermark_scale: float) -> bool:
     url = f"https://api.telegram.org/bot{token}/sendMediaGroup"
     media, files = [], {}
     loop = asyncio.get_running_loop()
+    
     for idx, img_path in enumerate(images[:10]):
         image_bytes = await loop.run_in_executor(None, apply_watermark, img_path, watermark_scale)
         if image_bytes:
             key = f"photo{idx}"
             files[key] = (f"img_{idx}.jpg", image_bytes, "image/jpeg")
             media.append({"type": "photo", "media": f"attach://{key}"})
+            
     if not media: return False
     data = {"chat_id": chat_id, "media": json.dumps(media)}
     return await _post_with_retry(client, "POST", url, data, files)
@@ -122,20 +131,6 @@ async def send_message(client: httpx.AsyncClient, token: str, chat_id: str, text
         data["reply_markup"] = json.dumps(kwargs["reply_markup"])
     return await _post_with_retry(client, "POST", url, data)
 
-def validate_article(art: Dict[str, Any], article_dir: Path) -> Optional[Tuple[str, Path, List[Path], str]]:
-    aid = art.get("id")
-    title = art.get("title", "").strip()
-    text_filename = art.get("text_file")
-    if not all([aid, title, text_filename]): return None
-    text_path = article_dir / text_filename
-    if not text_path.is_file(): return None
-    images_dir = article_dir / "images"
-    valid_imgs: List[Path] = []
-    if images_dir.is_dir():
-        valid_imgs = sorted([p for p in images_dir.iterdir() if p.suffix.lower() in {".jpg", ".jpeg", ".png"}])
-    html_title = f"<b>{escape_html(title)}</b>"
-    return html_title, text_path, valid_imgs, title
-
 def load_posted_ids(state_file: Path) -> Set[str]:
     if not state_file.is_file(): return set()
     try:
@@ -145,26 +140,33 @@ def load_posted_ids(state_file: Path) -> Set[str]:
     except Exception: return set()
 
 def save_posted_ids(all_ids_to_save: Set[str], state_file: Path) -> None:
+    """Атомарно сохраняет ID в файл, обрезая историю до лимита."""
     state_file.parent.mkdir(parents=True, exist_ok=True)
     try:
+        # Преобразуем в int для правильной сортировки (99 < 100)
         sorted_ids = sorted([int(i) for i in all_ids_to_save])
         if len(sorted_ids) > MAX_POSTED_RECORDS:
             sorted_ids = sorted_ids[-MAX_POSTED_RECORDS:]
-        with state_file.open("w", encoding="utf-8") as f:
+        
+        # Сохраняем через временный файл, чтобы не повредить основной при сбое
+        temp_file = state_file.with_suffix(".tmp")
+        with temp_file.open("w", encoding="utf-8") as f:
             json.dump(sorted_ids, f, ensure_ascii=False, indent=2)
-        logging.info(f"Сохранено {len(sorted_ids)} ID в posted.json")
+        temp_file.replace(state_file)
+        
+        logging.info(f"💾 История обновлена: {len(sorted_ids)} ID сохранено.")
     except Exception as e:
-        logging.error(f"Ошибка сохранения состояния: {e}")
+        logging.error(f"Ошибка при сохранении posted.json: {e}")
 
 async def main(parsed_dir: str, state_path: str, limit: Optional[int], watermark_scale: float):
     token, chat_id = os.getenv("TELEGRAM_TOKEN"), os.getenv("TELEGRAM_CHANNEL")
     if not token or not chat_id:
-        logging.error("❌ TELEGRAM_TOKEN or TELEGRAM_CHANNEL missing.")
+        logging.error("❌ TELEGRAM_TOKEN или TELEGRAM_CHANNEL не найдены в переменных окружения.")
         return
 
     parsed_root, state_file = Path(parsed_dir), Path(state_path)
     posted_ids = load_posted_ids(state_file)
-    logging.info(f"Загружено {len(posted_ids)} опубликованных ID.")
+    logging.info(f"Загружено {len(posted_ids)} опубликованных ID из истории.")
     
     articles_to_post = []
     if parsed_root.is_dir():
@@ -174,59 +176,89 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int], watermark
                 try:
                     art_meta = json.loads(meta_file.read_text(encoding="utf-8"))
                     article_id = str(art_meta.get("id"))
+                    
                     if article_id and article_id not in posted_ids:
-                        if validated_data := validate_article(art_meta, d):
-                            _, text_path, image_paths, original_title = validated_data
+                        text_file = art_meta.get("text_file")
+                        if text_file and (d / text_file).is_file():
+                            # Ищем картинки в папке images
+                            images_dir = d / "images"
+                            valid_imgs = []
+                            if images_dir.is_dir():
+                                valid_imgs = sorted([p for p in images_dir.iterdir() if p.suffix.lower() in {".jpg", ".jpeg", ".png"}])
+                            
                             articles_to_post.append({
-                                "id": article_id, "html_title": f"<b>{escape_html(original_title)}</b>",
-                                "text_path": text_path, "image_paths": image_paths,
-                                "original_title": original_title
+                                "id": article_id,
+                                "html_title": f"<b>{escape_html(art_meta.get('title', '').strip())}</b>",
+                                "text_path": d / text_file,
+                                "image_paths": valid_imgs,
+                                "original_title": art_meta.get('title', '').strip()
                             })
-                except Exception: pass
+                except Exception as e:
+                    logging.warning(f"Ошибка чтения метаданных в {d}: {e}")
 
+    # Сортируем: сначала публикуем более старые (меньший ID)
     articles_to_post.sort(key=lambda x: int(x["id"]))
+    
     if not articles_to_post:
-        logging.info("🔍 Нет новых статей.")
+        logging.info("🔍 Новых статей для публикации не найдено.")
         return
 
-    logging.info(f"Найдено {len(articles_to_post)} новых статей.")
+    logging.info(f"Найдено {len(articles_to_post)} статей для отправки.")
+
     async with httpx.AsyncClient() as client:
         sent_count = 0
-        newly_posted_ids: Set[str] = set()
-
         for article in articles_to_post:
-            if limit is not None and sent_count >= limit: break
+            if limit is not None and sent_count >= limit:
+                logging.info(f"🛑 Достигнут лимит пакета ({limit} статей).")
+                break
+
             logging.info(f"🚀 Публикация ID={article['id']}...")
             try:
+                # 1. Сначала отправляем альбом с картинками
                 if article["image_paths"]:
                     await send_media_group(client, token, chat_id, article["image_paths"], watermark_scale)
                 
+                # 2. Подготовка и отправка текста
                 raw_text = article["text_path"].read_text(encoding="utf-8")
+                # Очищаем текст от заголовка, если он там продублирован
                 cleaned_text = raw_text.lstrip()
                 if cleaned_text.startswith(article["original_title"]):
                     cleaned_text = cleaned_text[len(article["original_title"]):].lstrip()
-                
+
                 full_html = f"{article['html_title']}\n\n{escape_html(cleaned_text)}"
                 full_html = re.sub(r'\n{3,}', '\n\n', full_html).strip()
                 chunks = chunk_text(full_html)
-                
+
                 for i, chunk in enumerate(chunks):
-                    is_last_chunk = (i == len(chunks) - 1)
-                    reply_markup = { "inline_keyboard": [[ {"text": "Обмен валют", "url": "https://t.me/mister1dollar"}, {"text": "Отзывы", "url": "https://t.me/feedback1dollar"} ]]} if is_last_chunk else None
+                    is_last = (i == len(chunks) - 1)
+                    # Добавляем кнопки только к последнему куску текста
+                    reply_markup = { 
+                        "inline_keyboard": [[ 
+                            {"text": "💰 Обмен валют", "url": "https://t.me/mister1dollar"}, 
+                            {"text": "⭐️ Отзывы", "url": "https://t.me/feedback1dollar"} 
+                        ]]
+                    } if is_last else None
+                    
                     if not await send_message(client, token, chat_id, chunk, reply_markup=reply_markup):
-                        raise Exception("Text send failed")
+                        raise Exception(f"Не удалось отправить текст статьи {article['id']}")
                     await asyncio.sleep(0.5)
 
-                logging.info(f"✅ Успешно: ID={article['id']}")
-                newly_posted_ids.add(article['id'])
+                # --- КЛЮЧЕВОЙ МОМЕНТ: Сохраняем прогресс сразу после успеха ---
+                logging.info(f"✅ Статья ID={article['id']} успешно опубликована.")
+                posted_ids.add(article['id'])
+                save_posted_ids(posted_ids, state_file)
+                # -------------------------------------------------------------
+                
                 sent_count += 1
-            except Exception as e:
-                logging.error(f"❌ Ошибка публикации: {e}")
-            await asyncio.sleep(float(os.getenv("POST_DELAY", DEFAULT_DELAY)))
+                # Задержка между статьями
+                await asyncio.sleep(float(os.getenv("POST_DELAY", DEFAULT_DELAY)))
 
-    if newly_posted_ids:
-        all_ids_to_save = posted_ids.union(newly_posted_ids)
-        save_posted_ids(all_ids_to_save, state_file)
+            except Exception as e:
+                logging.error(f"❌ Сбой при публикации ID={article['id']}: {e}")
+                # Если одна статья упала, продолжаем следующую (или можно выйти, если ошибка критична)
+                continue
+
+    logging.info(f"🏁 Сессия завершена. Опубликовано статей: {sent_count}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
