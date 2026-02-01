@@ -21,34 +21,61 @@ env:
 jobs:
   build-and-publish:
     name: Parse and Publish (Thaiger)
-    runs-on: ubuntu-22.04  # Оставляем 22.04 для стабильности WARP
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Сначала включаем WARP (чтобы весь сетевой трафик шел через него)
-      - name: Set up Cloudflare WARP
-        uses: fscarmen/warp-on-actions@v1.3
-        with:
-          stack: ipv4
+      # --- НОВЫЙ БЛОК: Ручная установка WARP ---
+      # Это решает проблему зависания и явно открывает порт 40000
+      - name: Install & Configure WARP Manually
+        run: |
+          # 1. Добавляем ключи и репозиторий Cloudflare
+          curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+          
+          # 2. Устанавливаем сам клиент
+          sudo apt-get update
+          sudo apt-get install -y cloudflare-warp
 
-      # 2. Потом ставим Python (один раз!)
+          # 3. Регистрируем клиент
+          yes | sudo warp-cli registration new
+
+          # 4. Переключаем в режим прокси и ставим порт 40000 (как в main.py)
+          sudo warp-cli mode proxy
+          sudo warp-cli proxy port 40000
+
+          # 5. Подключаемся
+          sudo warp-cli connect
+          
+          # 6. Ждем и проверяем статус
+          sleep 5
+          echo "Проверка работы прокси..."
+          if ! curl -x socks5://127.0.0.1:40000 -s https://www.cloudflare.com/cdn-cgi/trace | grep "warp=on"; then
+            echo "❌ WARP did not start correctly!"
+            sudo warp-cli status
+            sudo warp-cli net-log
+            exit 1
+          else
+            echo "✅ WARP is active on port 40000"
+          fi
+      # ----------------------------------------
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
-      # 3. Потом ставим библиотеки
       - name: Install requirements
         run: |
           if [ -f requirements-parser.txt ]; then pip install -r requirements-parser.txt; fi
           if [ -f requirements-poster.txt ]; then pip install -r requirements-poster.txt; fi
 
-      # 4. Запускаем парсер
       - name: Run parser
         id: parse_step
         run: |
+          # main.py теперь должен использовать прокси socks5h://127.0.0.1:40000
           python3 main.py \
             --base-url "https://www.thethaiger.com" \
             --slug "national" \
@@ -59,7 +86,6 @@ jobs:
           NEW_ARTICLES_STATUS=$(grep "NEW_ARTICLES_STATUS:" parser_output.txt | cut -d: -f2 | tr -d '[:space:]')
           echo "new_articles_found=$NEW_ARTICLES_STATUS" >> $GITHUB_OUTPUT
 
-      # 5. Запускаем постер (если есть новые статьи)
       - name: Run poster
         if: steps.parse_step.outputs.new_articles_found == 'true'
         run: |
@@ -68,7 +94,6 @@ jobs:
             --state-file articles/posted.json \
             --limit $BATCH_LIMIT
 
-      # 6. Сохраняем результат
       - name: Commit updated data files
         run: |
           git config user.name "github-actions[bot]"
