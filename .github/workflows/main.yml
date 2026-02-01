@@ -21,14 +21,14 @@ env:
 jobs:
   build-and-publish:
     name: Parse and Publish (Thaiger)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04  # Оставляем 22.04 для стабильности WARP
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --- НОВЫЙ БЛОК: Ручная установка WARP ---
-      # Это решает проблему зависания и явно открывает порт 40000
+      # --- ИСПРАВЛЕННЫЙ БЛОК: Ручная установка WARP ---
+      # Используем флаг --accept-tos вместо yes |, чтобы избежать Broken pipe
       - name: Install & Configure WARP Manually
         run: |
           # 1. Добавляем ключи и репозиторий Cloudflare
@@ -39,23 +39,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cloudflare-warp
 
-          # 3. Регистрируем клиент
-          yes | sudo warp-cli registration new
+          # 3. Регистрируем клиент (с флагом --accept-tos)
+          sudo warp-cli --accept-tos registration new
 
-          # 4. Переключаем в режим прокси и ставим порт 40000 (как в main.py)
-          sudo warp-cli mode proxy
-          sudo warp-cli proxy port 40000
+          # 4. Переключаем в режим прокси и ставим порт 40000
+          sudo warp-cli --accept-tos mode proxy
+          sudo warp-cli --accept-tos proxy port 40000
 
           # 5. Подключаемся
-          sudo warp-cli connect
+          sudo warp-cli --accept-tos connect
           
           # 6. Ждем и проверяем статус
           sleep 5
           echo "Проверка работы прокси..."
           if ! curl -x socks5://127.0.0.1:40000 -s https://www.cloudflare.com/cdn-cgi/trace | grep "warp=on"; then
             echo "❌ WARP did not start correctly!"
-            sudo warp-cli status
-            sudo warp-cli net-log
+            sudo warp-cli --accept-tos status
+            sudo warp-cli --accept-tos net-log
             exit 1
           else
             echo "✅ WARP is active on port 40000"
