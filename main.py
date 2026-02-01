@@ -209,14 +209,41 @@ def fetch_cat_id(url, slug):
     return data[0]["id"]
 
 def fetch_posts(url, cid, limit):
-    logging.info(f"Запрос постов (limit={limit})...") 
-    try:
-        r = make_request("GET", f"{url}/wp-json/wp/v2/posts", 
-                         params={"categories": cid, "per_page": limit, "_embed": "true"})
-        return r.json()
-    except Exception as e:
-        logging.error(f"Ошибка получения постов: {e}")
-        return []
+    logging.info(f"Запрос {limit} постов (постранично) через WARP...") 
+    all_posts = []
+    page = 1
+    max_per_page = 100 # WordPress не дает больше 100 за раз
+
+    while len(all_posts) < limit:
+        try:
+            # Вычисляем сколько осталось скачать
+            remaining = limit - len(all_posts)
+            current_batch = min(remaining, max_per_page)
+
+            logging.info(f"   📥 Скачиваем страницу {page} ({current_batch} шт.)...")
+            
+            r = make_request("GET", f"{url}/wp-json/wp/v2/posts", 
+                             params={
+                                 "categories": cid, 
+                                 "per_page": current_batch, 
+                                 "page": page, 
+                                 "_embed": "true"
+                             })
+            
+            data = r.json()
+            if not data:
+                logging.info("   Посты закончились раньше лимита.")
+                break
+            
+            all_posts.extend(data)
+            page += 1
+            time.sleep(1) # Пауза между страницами, чтобы не грузить сервер
+
+        except Exception as e:
+            logging.error(f"Ошибка получения страницы {page}: {e}")
+            break
+            
+    return all_posts
 
 # --- ПАРСИНГ ---
 def parse_and_save(post, lang, stopwords):
