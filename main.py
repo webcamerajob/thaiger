@@ -23,7 +23,7 @@ OUTPUT_DIR = Path("articles")
 CATALOG_PATH = OUTPUT_DIR / "catalog.json"
 MAX_RETRIES = 3
 BASE_DELAY = 1.0
-FETCH_DEPTH = 10
+FETCH_DEPTH = 30
 
 # Константа для порта WARP (Socks5 с удаленным DNS)
 WARP_PROXY = "socks5h://127.0.0.1:40000"
