@@ -245,11 +245,12 @@ def fetch_posts(url, cid, limit):
             
     return all_posts
 
-# --- ПАРСИНГ ---
+# --- ПАРСИНГ (ИСПРАВЛЕННЫЙ) ---
 def parse_and_save(post, lang, stopwords):
     time.sleep(2)
     aid, slug, link = str(post["id"]), post["slug"], post.get("link")
 
+    # 1. Заголовок
     raw_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
     title = sanitize_text(raw_title)
 
@@ -259,10 +260,12 @@ def parse_and_save(post, lang, stopwords):
                 logging.info(f"🚫 ID={aid}: Стоп-слово '{ph}'")
                 return None
 
+    # 2. Скачивание HTML
     try:
         html_txt = make_request("GET", link).text
     except Exception: return None
 
+    # 3. Проверка хэша (чтобы не парсить одно и то же)
     meta_path = OUTPUT_DIR / f"{aid}_{slug}" / "meta.json"
     curr_hash = hashlib.sha256(html_txt.encode()).hexdigest()
     if meta_path.exists():
@@ -274,27 +277,75 @@ def parse_and_save(post, lang, stopwords):
         except: pass
 
     logging.info(f"Processing ID={aid}: {title[:30]}...")
-
     soup = BeautifulSoup(html_txt, "html.parser")
 
-    for r in soup.find_all("div", class_="post-widget-thumbnail"): r.decompose()
-    for j in soup.find_all(["span", "div", "script", "style", "iframe"]):
-        if not hasattr(j, 'attrs') or j.attrs is None: continue 
-        c = str(j.get("class", ""))
-        if j.get("data-mce-type") or "mce_SELRES" in c or "widget" in c: j.decompose()
+    # 4. ЖЕСТКАЯ ОЧИСТКА МУСОРА
+    # Удаляем технические теги
+    for tag in soup.find_all(["script", "style", "iframe", "noscript", "form", "button", "input", "meta", "link"]):
+        tag.decompose()
 
-    paras = []
-    if c_div := soup.find("div", class_="entry-content"):
-        for r in c_div.find_all(["ul", "ol", "div"], class_=re.compile(r"rp4wp|related|ad-")): r.decompose()
-        paras = [sanitize_text(p.get_text(strip=True)) for p in c_div.find_all("p")]
+    # Удаляем рекламные блоки и виджеты по классам
+    garbage_classes = [
+        "post-widget-thumbnail", "related-posts", "ad-container", "share-buttons", 
+        "meta-info", "jp-relatedposts", "mc_embed_signup", "widget_text"
+    ]
+    for tag in soup.find_all(class_=lambda c: c and any(g in c for g in garbage_classes)):
+        tag.decompose()
 
-    raw_txt_clean = BAD_RE.sub("", "\n\n".join(paras))
+    # Удаляем пустые элементы
+    for tag in soup.find_all(["div", "span", "p"]):
+        if not tag.get_text(strip=True) and not tag.find("img"):
+            tag.decompose()
 
+    # 5. СБОР ТЕКСТА (НОВАЯ ЛОГИКА)
+    raw_txt_clean = ""
+    c_div = soup.find("div", class_="entry-content")
+    
+    if c_div:
+        # Удаляем "Related Posts" и прочие вставки внутри текста
+        for r in c_div.find_all(["ul", "ol", "div"], class_=re.compile(r"rp4wp|related|ad-|banner")): 
+            r.decompose()
+
+        # --- ИСПРАВЛЕНИЕ: Используем get_text с разделителями ---
+        # separator=" " для слов внутри строки (span, b, i)
+        # separator="\n\n" для блоков, чтобы заголовки не липли к тексту
+        # Но get_text берет всё скопом. Лучше итерировать по блокам.
+        
+        blocks = []
+        # Ищем все смысловые блоки, а не только <p>
+        for tag in c_div.find_all(["p", "h2", "h3", "h4", "h5", "blockquote", "li"]):
+            # Пропускаем li, если они внутри ul/ol, которые мы уже обработали бы (но здесь простой перебор)
+            # Чтобы не дублировать списки, проверим родителя
+            if tag.name == "li" and tag.parent.name in ["ul", "ol"]:
+                # Списки лучше обрабатывать целиком, но простой перебор тоже сработает, если добавить маркер
+                text = tag.get_text(separator=" ", strip=True)
+                if text: blocks.append(f"• {text}")
+            elif tag.name.startswith("h"):
+                text = tag.get_text(separator=" ", strip=True)
+                if text: blocks.append(f"\n[{text}]\n") # Выделяем заголовки визуально
+            else:
+                # Обычный текст (p, blockquote)
+                text = tag.get_text(separator=" ", strip=True)
+                if text: blocks.append(text)
+
+        # Если блоки не нашлись (текст просто в div), используем fallback
+        if not blocks:
+            full_text = c_div.get_text(separator="\n\n", strip=True)
+            blocks = [full_text]
+
+        raw_txt_clean = "\n\n".join(blocks)
+        # Убираем лишние пробелы и переносы
+        raw_txt_clean = re.sub(r'\n{3,}', '\n\n', raw_txt_clean).strip()
+        raw_txt_clean = BAD_RE.sub("", raw_txt_clean)
+
+    # 6. КАРТИНКИ
     srcs = set()
+    # Lightbox
     for link_tag in soup.find_all("a", class_="ci-lightbox", limit=10):
         if h := link_tag.get("href"): 
             if "gif" not in h.lower(): srcs.add(h)
 
+    # Картинки в тексте
     if c_div:
         for img in c_div.find_all("img"):
             if u := extract_img_url(img): srcs.add(u)
@@ -306,6 +357,7 @@ def parse_and_save(post, lang, stopwords):
             for f in as_completed(futs):
                 if p:=f.result(): images.append(p)
 
+    # Fallback картинка (Featured)
     if not images and "_embedded" in post and (m:=post["_embedded"].get("wp:featuredmedia")):
         if isinstance(m, list) and (u:=m[0].get("source_url")):
              if "300x200" not in u and "150x150" not in u and "logo" not in u.lower():
@@ -315,13 +367,17 @@ def parse_and_save(post, lang, stopwords):
         logging.warning(f"⚠️ ID={aid}: Нет картинок. Skip.")
         return None
 
+    # 7. ПЕРЕВОД
     final_title = title
     final_text = raw_txt_clean
     translated_lang = ""
 
     if lang:
         DELIMITER = " ||| " 
-        combined_text = f"{title}{DELIMITER}{raw_txt_clean}"
+        # Ограничиваем длину текста для перевода, чтобы не ломать Google Translate
+        text_to_translate = raw_txt_clean[:4500] 
+        combined_text = f"{title}{DELIMITER}{text_to_translate}"
+        
         translated_combined = translate_text(combined_text, lang)
 
         if translated_combined:
@@ -334,13 +390,19 @@ def parse_and_save(post, lang, stopwords):
                 final_title = parts[0].strip()
                 final_text = parts[1].strip()
             else:
+                # Если разделитель потерялся, пробуем эвристику
                 parts = translated_combined.split('\n', 1)
                 final_title = parts[0].strip()
                 final_text = parts[1].strip() if len(parts) > 1 else ""
             translated_lang = lang
+            
+            # Если текст был обрезан, добавляем пометку (опционально)
+            if len(raw_txt_clean) > 4500:
+                final_text += "\n\n[...Читать далее на сайте...]"
 
     final_title = sanitize_text(final_title)
 
+    # 8. СОХРАНЕНИЕ
     art_dir = OUTPUT_DIR / f"{aid}_{slug}"
     art_dir.mkdir(parents=True, exist_ok=True)
 
