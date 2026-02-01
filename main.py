@@ -393,7 +393,7 @@ def main():
             print("NEW_ARTICLES_STATUS:false")
             return
 
-        new_posts.reverse()
+######        new_posts.reverse()
         posts_to_process = new_posts[:args.limit]
         processed = []
         count = 0
