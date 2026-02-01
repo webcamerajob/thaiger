@@ -134,6 +134,65 @@
     "translated_to": "ru"
   },
   {
+    "id": "973635",
+    "slug": "phuket-entertainment-venue-operators-demand-probe-into-alleged-bribery",
+    "date": "2026-01-06T13:54:13",
+    "link": "https://thethaiger.com/news/phuket/phuket-entertainment-venue-operators-demand-probe-into-alleged-bribery",
+    "title": "Операторы развлекательных заведений Пхукета требуют расследования предполагаемого взяточничества",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-06T132011.443.jpg",
+      "Thaiger-Cover-Picture-2026-01-06T132124.716.jpg"
+    ],
+    "posted": false,
+    "hash": "151067fe01bf8c117f5a51d1de14c9111c367c44325eee66c49c170f5188cfe2",
+    "translated_to": "ru"
+  },
+  {
+    "id": "973641",
+    "slug": "surachate-hakparn-gold-bribe-nacc",
+    "date": "2026-01-06T14:41:53",
+    "link": "https://thethaiger.com/news/national/surachate-hakparn-gold-bribe-nacc",
+    "title": "Новые доказательства связывают «Большую шутку» с предполагаемой золотой взяткой",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Guide-Article-Template-14.jpg"
+    ],
+    "posted": false,
+    "hash": "d3e154be91f9ffce3c97997d4d13f7c3dd012578ddd60c263cbbbcc68af07218",
+    "translated_to": "ru"
+  },
+  {
+    "id": "973652",
+    "slug": "wat-arun-photographers-warned-for-exploiting-public-space-for-personal-gain",
+    "date": "2026-01-06T14:55:08",
+    "link": "https://thethaiger.com/news/bangkok/wat-arun-photographers-warned-for-exploiting-public-space-for-personal-gain",
+    "title": "Фотографов Ват Аруна предупредили за использование общественного пространства в личных целях",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-06T144433.172.jpg",
+      "Thaiger-Cover-Picture-2026-01-06T144520.260.jpg",
+      "Thaiger-Cover-Picture-2026-01-06T144937.603.jpg"
+    ],
+    "posted": false,
+    "hash": "bc966b2d20b199d1480422bccb4884b726d538eb8130733d715aa4b441bc5fde",
+    "translated_to": "ru"
+  },
+  {
+    "id": "973662",
+    "slug": "asiatic-golden-cat-khao-yai-sighting",
+    "date": "2026-01-06T15:22:51",
+    "link": "https://thethaiger.com/news/national/asiatic-golden-cat-khao-yai-sighting",
+    "title": "Редкую азиатскую золотую кошку заметили в национальном парке Као Яй",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Guide-Article-Template-15.jpg"
+    ],
+    "posted": false,
+    "hash": "54d422315b9b49e53ef0a8696c3a83b5d195c7efa55bde23aec11f31d97381dd",
+    "translated_to": "ru"
+  },
+  {
     "id": "973697",
     "slug": "thai-nurse-blames-leading-politician-for-jail-term-and-loss-of-unborn-child",
     "date": "2026-01-06T15:54:59",
@@ -912,6 +971,20 @@
     ],
     "posted": false,
     "hash": "4aa063246b735a339dae27bb268427054a5297e5c1766b431a974ef89f4d469e",
+    "translated_to": "ru"
+  },
+  {
+    "id": "980182",
+    "slug": "thai-mans-sacred-tattoo-test-leads-to-axe-injuries",
+    "date": "2026-02-01T15:19:32",
+    "link": "https://thethaiger.com/news/national/thai-mans-sacred-tattoo-test-leads-to-axe-injuries",
+    "title": "Тайский тест на священную татуировку привел к травмам топором",
+    "text_file": "content.ru.txt",
+    "images": [
+      "tattoos.jpg"
+    ],
+    "posted": false,
+    "hash": "b57c3bf098351c1addbb2833a8e0505867586d8e7ba5f702a02a45a3cf833ac8",
     "translated_to": "ru"
   }
 ]
