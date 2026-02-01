@@ -27,20 +27,70 @@ BASE_DELAY = 1.0
 MAX_POSTED_RECORDS = 300 
 FETCH_DEPTH = 10
 
-# --- НАСТРОЙКИ СЕТИ ---
+# --- НАСТРОЙКИ СЕТИ (ОБНОВЛЕННЫЕ) ---
+# Обновляем версию браузера до chrome120 для меньшей подозрительности
 SCRAPER = cffi_requests.Session(
-    impersonate="chrome110",
-    http_version=CurlHttpVersion.V1_1
+    impersonate="chrome120", 
+    http_version=CurlHttpVersion.V2
 )
 
 SCRAPER.headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://www.google.com/"
+    "Referer": "https://www.google.com/",
+    "Upgrade-Insecure-Requests": "1"
 }
-SCRAPER_TIMEOUT = 30 
-BAD_RE = re.compile(r"[\u200b-\u200f\uFEFF\u200E\u00A0]")
+SCRAPER_TIMEOUT = 60 # Увеличили таймаут до 60 сек из-за WARP
+
+# --- НОВАЯ ФУНКЦИЯ: SAFE REQUEST ---
+def make_request(method: str, url: str, **kwargs):
+    """Обертка для запросов с повторами (Retries)"""
+    retries = 3
+    for i in range(retries):
+        try:
+            # Принудительно ставим таймаут, если не передан
+            kwargs.setdefault("timeout", SCRAPER_TIMEOUT)
+            
+            if method.upper() == "GET":
+                response = SCRAPER.get(url, **kwargs)
+            else:
+                response = SCRAPER.request(method, url, **kwargs)
+
+            # Если поймали блокировку (429 или 403), ждем дольше
+            if response.status_code in [403, 429]:
+                logging.warning(f"⚠️ Блок или лимит ({response.status_code}). Ждем 20с... Попытка {i+1}/{retries}")
+                time.sleep(20)
+                continue
+            
+            response.raise_for_status()
+            return response
+
+        except Exception as e:
+            logging.warning(f"⚠️ Ошибка сети: {e}. Попытка {i+1}/{retries}")
+            time.sleep(10 * (i + 1)) # Экспоненциальная задержка: 10, 20, 30 сек
+    
+    raise Exception(f"❌ Не удалось получить данные с {url} после {retries} попыток")
+
+# --- ЗАПРОСЫ (ИСПОЛЬЗУЮТ SAFE REQUEST) ---
+def fetch_cat_id(url, slug):
+    logging.info(f"Получение ID категории для '{slug}'...")
+    # Используем новую функцию make_request
+    r = make_request("GET", f"{url}/wp-json/wp/v2/categories?slug={slug}")
+    data = r.json()
+    if not data: raise RuntimeError("Cat not found")
+    return data[0]["id"]
+
+def fetch_posts(url, cid, limit):
+    logging.info(f"Запрос постов (limit={limit})...") 
+    try:
+        # Используем новую функцию make_request
+        r = make_request("GET", f"{url}/wp-json/wp/v2/posts", 
+                         params={"categories": cid, "per_page": limit, "_embed": "true"})
+        return r.json()
+    except Exception as e:
+        logging.error(f"Ошибка получения постов: {e}")
+        return []
 
 # --- ПРЯМОЙ ПЕРЕВОДЧИК (GTX) ---
 def translate_text(text: str, to_lang: str = "ru") -> str:
@@ -225,10 +275,15 @@ def parse_and_save(post, lang, stopwords):
                 return None
 
     try:
-        html_txt = SCRAPER.get(link, timeout=SCRAPER_TIMEOUT).text
+    # Используем make_request
+        html_txt = make_request("GET",link).text
+    except Exception:
+        logging.error(f"Не удалось скачать статью {link}")
+        return None
+
     except Exception: return None
 
-    meta_path = OUTPUT_DIR / f"{aid}_{slug}" / "meta.json"
+     meta_path = OUTPUT_DIR / f"{aid}_{slug}" / "meta.json"
     curr_hash = hashlib.sha256(html_txt.encode()).hexdigest()
     if meta_path.exists():
         try:
