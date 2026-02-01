@@ -21,7 +21,7 @@ env:
 jobs:
   build-and-publish:
     name: Parse and Publish (Thaiger)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     
     steps:
       - name: Checkout code
