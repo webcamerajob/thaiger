@@ -245,8 +245,8 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int], watermark
                     # Добавляем кнопки только к последнему куску текста
                     reply_markup = { 
                         "inline_keyboard": [[ 
-                            {"text": "💰 Обмен валют", "url": "https://t.me/mister1dollar"}, 
-                            {"text": "⭐️ Отзывы", "url": "https://t.me/feedback1dollar"} 
+                            {"text": "💵 Обмен валют", "url": "https://t.me/mister1dollar"}, 
+                            {"text": "✍️ Отзывы", "url": "https://t.me/feedback1dollar"} 
                         ]]
                     } if is_last else None
                     
