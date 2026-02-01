@@ -1,5 +1,139 @@
 [
   {
+    "id": "972441",
+    "slug": "fire-destroys-two-homes-in-sai-mai-police-detain-suspect-for-questioning",
+    "date": "2025-12-29T11:41:16",
+    "link": "https://thethaiger.com/news/national/fire-destroys-two-homes-in-sai-mai-police-detain-suspect-for-questioning",
+    "title": "Пожар уничтожил два дома в Сай-Мае, полиция задержала подозреваемого для допроса",
+    "text_file": "content.ru.txt",
+    "images": [
+      "พ1-4-696x392-1.jpg",
+      "พ2-3-696x392-1.jpg"
+    ],
+    "posted": false,
+    "hash": "a67817105828d425c0acd70ababa9560c763b4f5ec53a897958de5c69c9bc8f1",
+    "translated_to": "ru"
+  },
+  {
+    "id": "972450",
+    "slug": "chinese-man-arrested-in-pattaya-knife-attack-that-leaves-3-bar-guards-injured",
+    "date": "2025-12-29T13:21:59",
+    "link": "https://thethaiger.com/news/pattaya/chinese-man-arrested-in-pattaya-knife-attack-that-leaves-3-bar-guards-injured",
+    "title": "Китаец арестован в Паттайе в результате нападения с ножом, в результате которого пострадали 3 охранника бара",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2025-12-29T130354.362.jpg",
+      "Thaiger-Cover-Picture-2025-12-29T130435.096.jpg",
+      "Thaiger-Cover-Picture-2025-12-29T130503.605.jpg"
+    ],
+    "posted": false,
+    "hash": "9f19f48a5618e65c485546cb13bf3f40b87f44a80ce6e2bd404d62bce90d37d1",
+    "translated_to": "ru"
+  },
+  {
+    "id": "972460",
+    "slug": "peoples-party-mp-candidate-arrested-in-drug-money-laundering-probe-denies-involvement",
+    "date": "2025-12-29T12:19:51",
+    "link": "https://thethaiger.com/news/national/peoples-party-mp-candidate-arrested-in-drug-money-laundering-probe-denies-involvement",
+    "title": "Кандидат в депутаты от Народной партии, арестованный по делу об отмывании денег, полученных от продажи наркотиков, отрицает свою причастность",
+    "text_file": "content.ru.txt",
+    "images": [
+      "98dad977-28e7-4458-ae41-c0d5a3a5f5da.jpg"
+    ],
+    "posted": false,
+    "hash": "a40d09ec5b9bcec6a5d6aff12ef47e530ea1001803308d54d452d9f3fdd50e3b",
+    "translated_to": "ru"
+  },
+  {
+    "id": "972464",
+    "slug": "man-arrested-for-manslaughter-after-fatal-dispute-over-2000-baht-debt",
+    "date": "2025-12-29T12:34:42",
+    "link": "https://thethaiger.com/news/national/man-arrested-for-manslaughter-after-fatal-dispute-over-2000-baht-debt",
+    "title": "Мужчина арестован за непредумышленное убийство после фатального спора по поводу долга в 2000 бат",
+    "text_file": "content.ru.txt",
+    "images": [
+      "tonglor2912682.jpg"
+    ],
+    "posted": false,
+    "hash": "91eb126069c564ee2b791a306398442ba9b112c1bf56b0eb8df957ac58c01f66",
+    "translated_to": "ru"
+  },
+  {
+    "id": "972481",
+    "slug": "indian-man-attacked-by-pattaya-transwomen-allegedly-over-unpaid-sex-service",
+    "date": "2025-12-29T13:58:05",
+    "link": "https://thethaiger.com/news/pattaya/indian-man-attacked-by-pattaya-transwomen-allegedly-over-unpaid-sex-service",
+    "title": "Индийский мужчина подвергся нападению со стороны трансженщин из Паттайи предположительно из-за неоплачиваемых сексуальных услуг",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2025-12-29T132822.694.jpg",
+      "Thaiger-Cover-Picture-2025-12-29T132858.131.jpg"
+    ],
+    "posted": false,
+    "hash": "327847b061dc889d8cf8e984a4f048dee4ec00fc94a2d19dce48f152c2d5114d",
+    "translated_to": "ru"
+  },
+  {
+    "id": "972490",
+    "slug": "thai-woman-dies-after-falling-200-metre-cliff-in-tak",
+    "date": "2025-12-29T15:12:14",
+    "link": "https://thethaiger.com/news/national/thai-woman-dies-after-falling-200-metre-cliff-in-tak",
+    "title": "Тайская женщина погибла после падения с 200-метровой скалы в Так",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2025-12-29T145427.876.jpg",
+      "Thaiger-Cover-Picture-2025-12-29T145501.018.jpg",
+      "Thaiger-Cover-Picture-2025-12-29T145904.865.jpg"
+    ],
+    "posted": false,
+    "hash": "0f4ada98b893bedf8f6008cb312d4741461b93d7dc84a03ee9df8c744118bb69",
+    "translated_to": "ru"
+  },
+  {
+    "id": "972507",
+    "slug": "thawiphop-returns-to-restore-public-trust-as-peoples-party-faces-candidate-crisis",
+    "date": "2025-12-29T14:51:44",
+    "link": "https://thethaiger.com/news/national/thawiphop-returns-to-restore-public-trust-as-peoples-party-faces-candidate-crisis",
+    "title": "Twiphop возвращается, чтобы восстановить общественное доверие, поскольку Народная партия сталкивается с кризисом кандидатов",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Image-Dec-29-2025-02_48_52-PM.jpg"
+    ],
+    "posted": false,
+    "hash": "74ee2eef8d586a7793967fb628e132d55ad7d871920b67a66f49ad70a8ef81c1",
+    "translated_to": "ru"
+  },
+  {
+    "id": "972517",
+    "slug": "thai-and-cambodian-diplomats-meet-in-china-to-reinforce-ceasefire-and-border-stability",
+    "date": "2025-12-29T15:22:08",
+    "link": "https://thethaiger.com/news/national/thai-and-cambodian-diplomats-meet-in-china-to-reinforce-ceasefire-and-border-stability",
+    "title": "Тайские и камбоджийские дипломаты встречаются в Китае, чтобы укрепить режим прекращения огня и стабильность границ",
+    "text_file": "content.ru.txt",
+    "images": [
+      "1321772.jpeg.webp"
+    ],
+    "posted": false,
+    "hash": "e7c5f750e641a87556f0ccce96def45b7461d1ca795e65e6d0454f5cfa399fa4",
+    "translated_to": "ru"
+  },
+  {
+    "id": "972523",
+    "slug": "cctv-exposes-thai-housemaid-pouring-disinfectant-into-baby-bottle",
+    "date": "2025-12-29T15:53:16",
+    "link": "https://thethaiger.com/news/bangkok/cctv-exposes-thai-housemaid-pouring-disinfectant-into-baby-bottle",
+    "title": "Система видеонаблюдения зафиксировала, как горничная из Таиланда наливает дезинфицирующее средство в бутылочку ребенка",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2025-12-29T153904.556.jpg",
+      "Thaiger-Cover-Picture-2025-12-29T154126.102.jpg",
+      "Thaiger-Cover-Picture-2025-12-29T154246.775.jpg"
+    ],
+    "posted": false,
+    "hash": "02d90d056372ab9e0afaeaf392aeacc2ad174950e4a53a5c25e0f3025c0404be",
+    "translated_to": "ru"
+  },
+  {
     "id": "978444",
     "slug": "police-and-military-seize-4-7-million-meth-pills-in-thailand",
     "date": "2026-01-25T11:48:26",
