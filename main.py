@@ -19,78 +19,44 @@ from curl_cffi import requests as cffi_requests, CurlHttpVersion
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
+# --- КОНФИГУРАЦИЯ ---
 OUTPUT_DIR = Path("articles")
 CATALOG_PATH = OUTPUT_DIR / "catalog.json"
 MAX_RETRIES = 3
 BASE_DELAY = 1.0
+MAX_POSTED_RECORDS = 300
+FETCH_DEPTH = 100
 
-MAX_POSTED_RECORDS = 300 
-FETCH_DEPTH = 10
+# Константа для порта WARP (Socks5 с удаленным DNS)
+WARP_PROXY = "socks5h://127.0.0.1:40000"
 
-# --- НАСТРОЙКИ СЕТИ (ОБНОВЛЕННЫЕ) ---
-# Обновляем версию браузера до chrome120 для меньшей подозрительности
+# --- НАСТРОЙКИ СЕТИ (Твой вариант) ---
+# Глобальная сессия для парсинга
 SCRAPER = cffi_requests.Session(
-    impersonate="chrome120", 
-    http_version=CurlHttpVersion.V2
+    impersonate="chrome110",
+    proxies={
+        "http": WARP_PROXY,
+        "https": WARP_PROXY
+    },
+    http_version=CurlHttpVersion.V1_1
 )
 
-SCRAPER.headers = {
+IPHONE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
     "Referer": "https://www.google.com/",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "cross-site",
+    "Sec-Fetch-User": "?1",
     "Upgrade-Insecure-Requests": "1"
 }
-SCRAPER_TIMEOUT = 60 # Увеличили таймаут до 60 сек из-за WARP
 
-# --- НОВАЯ ФУНКЦИЯ: SAFE REQUEST ---
-def make_request(method: str, url: str, **kwargs):
-    """Обертка для запросов с повторами (Retries)"""
-    retries = 3
-    for i in range(retries):
-        try:
-            # Принудительно ставим таймаут, если не передан
-            kwargs.setdefault("timeout", SCRAPER_TIMEOUT)
-            
-            if method.upper() == "GET":
-                response = SCRAPER.get(url, **kwargs)
-            else:
-                response = SCRAPER.request(method, url, **kwargs)
-
-            # Если поймали блокировку (429 или 403), ждем дольше
-            if response.status_code in [403, 429]:
-                logging.warning(f"⚠️ Блок или лимит ({response.status_code}). Ждем 20с... Попытка {i+1}/{retries}")
-                time.sleep(20)
-                continue
-            
-            response.raise_for_status()
-            return response
-
-        except Exception as e:
-            logging.warning(f"⚠️ Ошибка сети: {e}. Попытка {i+1}/{retries}")
-            time.sleep(10 * (i + 1)) # Экспоненциальная задержка: 10, 20, 30 сек
-    
-    raise Exception(f"❌ Не удалось получить данные с {url} после {retries} попыток")
-
-# --- ЗАПРОСЫ (ИСПОЛЬЗУЮТ SAFE REQUEST) ---
-def fetch_cat_id(url, slug):
-    logging.info(f"Получение ID категории для '{slug}'...")
-    # Используем новую функцию make_request
-    r = make_request("GET", f"{url}/wp-json/wp/v2/categories?slug={slug}")
-    data = r.json()
-    if not data: raise RuntimeError("Cat not found")
-    return data[0]["id"]
-
-def fetch_posts(url, cid, limit):
-    logging.info(f"Запрос постов (limit={limit})...") 
-    try:
-        # Используем новую функцию make_request
-        r = make_request("GET", f"{url}/wp-json/wp/v2/posts", 
-                         params={"categories": cid, "per_page": limit, "_embed": "true"})
-        return r.json()
-    except Exception as e:
-        logging.error(f"Ошибка получения постов: {e}")
-        return []
+# Применяем заголовки к сессии
+SCRAPER.headers = IPHONE_HEADERS
+SCRAPER_TIMEOUT = 60 
+BAD_RE = re.compile(r"[\u200b-\u200f\uFEFF\u200E\u00A0]")
 
 # --- ПРЯМОЙ ПЕРЕВОДЧИК (GTX) ---
 def translate_text(text: str, to_lang: str = "ru") -> str:
@@ -115,6 +81,9 @@ def translate_text(text: str, to_lang: str = "ru") -> str:
 
     translated_parts = []
     url = "https://translate.googleapis.com/translate_a/single"
+    # Для гугл переводчика прокси лучше отключить или использовать обычный requests
+    # чтобы не гонять лишний трафик через WARP, но можно и через него.
+    # Здесь используем обычный requests (без прокси), так как гугл обычно не блокирует GitHub.
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"}
 
     for chunk in chunks:
@@ -125,6 +94,7 @@ def translate_text(text: str, to_lang: str = "ru") -> str:
             params = {
                 "client": "gtx", "sl": "en", "tl": to_lang, "dt": "t", "q": chunk.strip()
             }
+            # Используем стандартный requests для перевода
             r = requests.get(url, params=params, headers=headers, timeout=10)
             if r.status_code == 200:
                 data = r.json()
@@ -185,44 +155,36 @@ def load_stopwords(file_path: Optional[Path]) -> List[str]:
             return [line.strip().lower() for line in f if line.strip()]
     except Exception: return []
 
-# --- 🔥 УМНЫЙ ФИЛЬТР КАРТИНОК (ВЕРНУЛ ОБРАТНО) 🔥 ---
+# --- КАРТИНКИ ---
 def extract_img_url(img_tag: Any) -> Optional[str]:
-    # 1. Сначала проверяем жестко заданные размеры в атрибутах
     width_attr = img_tag.get("width")
     if width_attr and width_attr.isdigit():
-        if int(width_attr) < 400: return None # Слишком мелкая
+        if int(width_attr) < 400: return None
 
-    # Вспомогательная проверка URL на мусор
     def is_junk(url_str: str) -> bool:
         u = url_str.lower()
         bad = ["gif", "logo", "banner", "icon", "avatar", "button", "share", "pixel", "tracker"]
         if any(b in u for b in bad): return True
-        # Паттерн мелких тумб (example-150x150.jpg)
         if re.search(r'-\d{2,3}x\d{2,3}\.', u): return True
         return False
 
-    # 2. Ищем в SRCSET (там лежат качественные версии)
     srcset = img_tag.get("srcset") or img_tag.get("data-srcset")
     if srcset:
         try:
             parts = srcset.split(',')
             links = []
             for p in parts:
-                # Ищем пары "ссылка размерw"
                 match = re.search(r'(\S+)\s+(\d+)w', p.strip())
                 if match: 
                     w_val = int(match.group(2))
                     u_val = match.group(1)
                     if w_val >= 400: links.append((w_val, u_val))
-
             if links:
-                # Берем самую большую
                 best_link = sorted(links, key=lambda x: x[0], reverse=True)[0][1]
                 if not is_junk(best_link): 
                     return best_link.split('?')[0]
         except Exception: pass
 
-    # 3. Fallback: Обычные атрибуты
     attrs = ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]
     for attr in attrs:
         if val := img_tag.get(attr):
@@ -237,24 +199,51 @@ def save_image(url, folder):
     if len(fn) > 50: fn = hashlib.md5(fn.encode()).hexdigest() + ".jpg"
     dest = folder / fn
     try:
-        dest.write_bytes(SCRAPER.get(url, timeout=SCRAPER_TIMEOUT).content)
+        # Используем make_request/SCRAPER для скачивания через прокси
+        resp = make_request("GET", url) 
+        dest.write_bytes(resp.content)
         return str(dest)
     except Exception: return None
 
-# --- ЗАПРОСЫ ---
+# --- ЗАПРОСЫ (С ПОВТОРАМИ И WARP) ---
+def make_request(method: str, url: str, **kwargs):
+    """Обертка для запросов через SCRAPER (с прокси) с повторами"""
+    retries = 3
+    for i in range(retries):
+        try:
+            kwargs.setdefault("timeout", SCRAPER_TIMEOUT)
+            
+            if method.upper() == "GET":
+                response = SCRAPER.get(url, **kwargs)
+            else:
+                response = SCRAPER.request(method, url, **kwargs)
+
+            if response.status_code in [403, 429]:
+                logging.warning(f"⚠️ Блок или лимит ({response.status_code}). Ждем 20с... (WARP Proxy)")
+                time.sleep(20)
+                continue
+            
+            response.raise_for_status()
+            return response
+
+        except Exception as e:
+            logging.warning(f"⚠️ Ошибка сети (WARP): {e}. Попытка {i+1}/{retries}")
+            time.sleep(10 * (i + 1))
+    
+    raise Exception(f"❌ Не удалось получить данные с {url} через прокси {WARP_PROXY}")
+
 def fetch_cat_id(url, slug):
-    r = SCRAPER.get(f"{url}/wp-json/wp/v2/categories?slug={slug}", timeout=SCRAPER_TIMEOUT)
-    r.raise_for_status(); data=r.json()
+    logging.info(f"Получение ID категории '{slug}' через WARP...")
+    r = make_request("GET", f"{url}/wp-json/wp/v2/categories?slug={slug}")
+    data = r.json()
     if not data: raise RuntimeError("Cat not found")
     return data[0]["id"]
 
 def fetch_posts(url, cid, limit):
-    logging.info(f"Запрашиваем {limit} последних статей из API...") 
-    time.sleep(2)
+    logging.info(f"Запрос постов (limit={limit}) через WARP...") 
     try:
-        r = SCRAPER.get(f"{url}/wp-json/wp/v2/posts?categories={cid}&per_page={limit}&_embed", timeout=SCRAPER_TIMEOUT)
-        if r.status_code==429: time.sleep(20)
-        r.raise_for_status()
+        r = make_request("GET", f"{url}/wp-json/wp/v2/posts", 
+                         params={"categories": cid, "per_page": limit, "_embed": "true"})
         return r.json()
     except Exception as e:
         logging.error(f"Ошибка получения постов: {e}")
@@ -275,15 +264,10 @@ def parse_and_save(post, lang, stopwords):
                 return None
 
     try:
-    # Используем make_request
-        html_txt = make_request("GET",link).text
-    except Exception:
-        logging.error(f"Не удалось скачать статью {link}")
-        return None
-
+        html_txt = make_request("GET", link).text
     except Exception: return None
 
-     meta_path = OUTPUT_DIR / f"{aid}_{slug}" / "meta.json"
+    meta_path = OUTPUT_DIR / f"{aid}_{slug}" / "meta.json"
     curr_hash = hashlib.sha256(html_txt.encode()).hexdigest()
     if meta_path.exists():
         try:
@@ -308,18 +292,14 @@ def parse_and_save(post, lang, stopwords):
         for r in c_div.find_all(["ul", "ol", "div"], class_=re.compile(r"rp4wp|related|ad-")): r.decompose()
         paras = [sanitize_text(p.get_text(strip=True)) for p in c_div.find_all("p")]
 
-    # Сбор контента
     raw_txt_clean = BAD_RE.sub("", "\n\n".join(paras))
 
-    # --- СБОР КАРТИНОК (С УМНЫМ ФИЛЬТРОМ) ---
+    # Картинки
     srcs = set()
-    # 1. Lightbox
     for link_tag in soup.find_all("a", class_="ci-lightbox", limit=10):
         if h := link_tag.get("href"): 
-            # Даже из лайтбокса проверяем на мусор (бывают гифки-лоадеры)
             if "gif" not in h.lower(): srcs.add(h)
 
-    # 2. Картинки из текста (прогоняем через умный extract_img_url)
     if c_div:
         for img in c_div.find_all("img"):
             if u := extract_img_url(img): srcs.add(u)
@@ -331,18 +311,16 @@ def parse_and_save(post, lang, stopwords):
             for f in as_completed(futs):
                 if p:=f.result(): images.append(p)
 
-    # 3. Fallback на Featured (но с проверкой)
     if not images and "_embedded" in post and (m:=post["_embedded"].get("wp:featuredmedia")):
         if isinstance(m, list) and (u:=m[0].get("source_url")):
-             # Доп. проверка на размер тумбы
              if "300x200" not in u and "150x150" not in u and "logo" not in u.lower():
                 if p:=save_image(u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): images.append(p)
 
     if not images:
-        logging.warning(f"⚠️ ID={aid}: Нет норм картинок (все отсеяны). Skip.")
+        logging.warning(f"⚠️ ID={aid}: Нет картинок. Skip.")
         return None
 
-    # --- ПЕРЕВОД (Контекстный) ---
+    # Перевод
     final_title = title
     final_text = raw_txt_clean
     translated_lang = ""
@@ -413,30 +391,22 @@ def main():
         if CATALOG_PATH.exists():
             with open(CATALOG_PATH, 'r') as f: catalog=json.load(f)
 
-        # 1. Фильтруем только новые посты
         new_posts = [p for p in posts if str(p["id"]) not in posted]
-        
         logging.info(f"Всего постов: {len(posts)}, новых: {len(new_posts)}")
-        
+
         if not new_posts:
             print("NEW_ARTICLES_STATUS:false")
             return
 
-        # 2. Реверсируем порядок: из [новые, ..., старые] в [старые, ..., новые]
         new_posts.reverse()
-        
-        # 3. Берем лимит (самые старые из новых)
         posts_to_process = new_posts[:args.limit]
-        
         processed = []
         count = 0
 
-        logging.info(f"Будем обрабатывать {len(posts_to_process)} постов (от старых к новым)...")
+        logging.info(f"Будем обрабатывать {len(posts_to_process)} постов...")
 
         for post in posts_to_process:
-            if count >= args.limit:
-                break
-
+            if count >= args.limit: break
             if meta := parse_and_save(post, args.lang, stop):
                 processed.append(meta)
                 count += 1
@@ -445,16 +415,11 @@ def main():
             for m in processed:
                 catalog = [i for i in catalog if i.get("id") != m["id"]]
                 catalog.append(m)
-            
-            # Сортируем каталог по ID (ID обычно растут со временем, меньший ID = старше)
             try:
                 catalog.sort(key=lambda x: int(x.get("id", 0)))
-            except:
-                pass
-            
+            except: pass
             with open(CATALOG_PATH, "w", encoding="utf-8") as f:
                 json.dump(catalog, f, ensure_ascii=False, indent=2)
-            
             print("NEW_ARTICLES_STATUS:true")
         else:
             print("NEW_ARTICLES_STATUS:false")
