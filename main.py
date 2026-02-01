@@ -245,7 +245,7 @@ def fetch_posts(url, cid, limit):
             
     return all_posts
 
-# --- ПАРСИНГ (ЧИСТАЯ ВЕРСИЯ) ---
+# --- ПАРСИНГ (БЕЗОПАСНАЯ ВЕРСИЯ) ---
 def parse_and_save(post, lang, stopwords):
     time.sleep(2)
     aid, slug, link = str(post["id"]), post["slug"], post.get("link")
@@ -268,7 +268,7 @@ def parse_and_save(post, lang, stopwords):
         html_txt = make_request("GET", link).text
     except Exception: return None
 
-    # 3. Хэш (защита от повторов)
+    # 3. Хэш
     meta_path = OUTPUT_DIR / f"{aid}_{slug}" / "meta.json"
     curr_hash = hashlib.sha256(html_txt.encode()).hexdigest()
     if meta_path.exists():
@@ -282,20 +282,18 @@ def parse_and_save(post, lang, stopwords):
     logging.info(f"Processing ID={aid}: {title[:30]}...")
     soup = BeautifulSoup(html_txt, "html.parser")
 
-    # 4. ПОДГОТОВКА HTML (Удаляем всё лишнее ДО извлечения текста)
+    # 4. ПОДГОТОВКА HTML
     
     # Удаляем технические теги
     for tag in soup.find_all(["script", "style", "iframe", "noscript", "form", "button", "input", "meta", "link", "svg"]):
         tag.decompose()
 
-    # Ищем основной контент
     c_div = soup.find("div", class_="entry-content")
     if not c_div:
-        # Fallback для некоторых тем WP
         c_div = soup.find("div", class_="td-post-content")
 
     if c_div:
-        # СПИСОК МУСОРА: классы, которые точно не нужны
+        # СПИСОК МУСОРА
         junk_classes = [
             "post-widget-thumbnail", "related-posts", "ad-container", "share-buttons", 
             "meta-info", "jp-relatedposts", "mc_embed_signup", "widget_text", 
@@ -303,67 +301,63 @@ def parse_and_save(post, lang, stopwords):
             "zeen-10-related-posts", "yarpp-related"
         ]
         
-        # Удаляем по классам
-        for tag in c_div.find_all(class_=True):
+        # --- ИСПРАВЛЕНИЕ: Безопасный перебор тегов ---
+        # Ищем все теги и проверяем атрибуты перед чтением
+        for tag in c_div.find_all(True):
+            # Защита от краша: если у тега нет атрибутов или attrs=None
+            if not hasattr(tag, 'attrs') or not tag.attrs:
+                continue
+            
+            # Безопасно получаем классы
             classes = tag.get("class", [])
-            if any(j in c for c in classes for j in junk_classes):
+            
+            # Если классы есть, проверяем на мусор
+            if classes and any(j in c for c in classes for j in junk_classes):
                 tag.decompose()
 
-        # Удаляем блоки "Читайте также" по тексту (Thaiger часто вставляет их просто текстом)
+        # Удаляем "Читайте также" по тексту
         for tag in c_div.find_all(["p", "h3", "h4", "div", "span"]):
             text = tag.get_text(strip=True).lower()
             if text.startswith("also read:") or text.startswith("read also:") or text.startswith("related:") or text == "advertisement":
                 tag.decompose()
-            # Удаляем абзацы, где одна ссылка (обычно это перелинковка)
             if tag.name == 'p' and tag.find('a') and len(tag.get_text(strip=True)) < 100:
-                # Если длина текста ссылки почти равна длине всего текста -> это просто ссылка
                 a_tag = tag.find('a')
                 if len(a_tag.get_text(strip=True)) >= len(text) - 5:
                     tag.decompose()
 
-    # 5. СБОР ТЕКСТА (Только полезные теги)
+    # 5. СБОР ТЕКСТА
     blocks = []
     if c_div:
-        # Проходим только по значимым тегам верхнего уровня
         for tag in c_div.find_all(["p", "h2", "h3", "ul", "ol", "blockquote"], recursive=False):
-            
-            # Обработка заголовков
             if tag.name in ["h2", "h3"]:
                 t = tag.get_text(strip=True)
-                if t and len(t) > 3: # Игнорируем совсем короткие заголовки-мусор
-                    blocks.append(f"\n<b>{t}</b>") # Жирным в Telegram
+                if t and len(t) > 3: 
+                    blocks.append(f"\n<b>{t}</b>")
             
-            # Обработка списков
             elif tag.name in ["ul", "ol"]:
                 lis = [f"• {li.get_text(strip=True)}" for li in tag.find_all("li") if li.get_text(strip=True)]
                 if lis:
                     blocks.append("\n".join(lis))
             
-            # Обработка цитат
             elif tag.name == "blockquote":
                 t = tag.get_text(separator=" ", strip=True)
                 if t: blocks.append(f"<i>{t}</i>")
 
-            # Обработка параграфов
             elif tag.name == "p":
-                # Убираем ссылки "Photo: ..." в конце статей
                 t = tag.get_text(separator=" ", strip=True)
                 if t.lower().startswith("photo:") or t.lower().startswith("source:"):
                     continue
                 if t: blocks.append(t)
 
-    # Собираем всё вместе через двойной перенос строки
     raw_txt_clean = "\n\n".join(blocks)
     raw_txt_clean = BAD_RE.sub("", raw_txt_clean)
 
     # 6. КАРТИНКИ
     srcs = set()
-    # Lightbox (обычно лучшие фото)
     for link_tag in soup.find_all("a", class_="ci-lightbox", limit=10):
         if h := link_tag.get("href"): 
             if "gif" not in h.lower(): srcs.add(h)
 
-    # Если контент найден, ищем картинки внутри
     if c_div:
         for img in c_div.find_all("img"):
             if u := extract_img_url(img): srcs.add(u)
@@ -375,13 +369,11 @@ def parse_and_save(post, lang, stopwords):
             for f in as_completed(futs):
                 if p:=f.result(): images.append(p)
 
-    # Fallback на Featured Image
     if not images and "_embedded" in post and (m:=post["_embedded"].get("wp:featuredmedia")):
         if isinstance(m, list) and (u:=m[0].get("source_url")):
              if "300x200" not in u and "150x150" not in u and "logo" not in u.lower():
                 if p:=save_image(u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): images.append(p)
 
-    # Если совсем нет картинок и текста мало — скорее всего мусор, пропускаем
     if not images and len(raw_txt_clean) < 100:
         logging.warning(f"⚠️ ID={aid}: Пустой контент/нет картинок. Skip.")
         return None
@@ -392,7 +384,7 @@ def parse_and_save(post, lang, stopwords):
     translated_lang = ""
 
     if lang and raw_txt_clean:
-        DELIMITER = "\n|||\n" # Надежный разделитель
+        DELIMITER = "\n|||\n" 
         text_to_translate = raw_txt_clean[:4500] 
         combined_text = f"{title}{DELIMITER}{text_to_translate}"
         
@@ -404,7 +396,6 @@ def parse_and_save(post, lang, stopwords):
                 final_title = parts[0].strip()
                 final_text = parts[1].strip()
             else:
-                # Эвристика: первая строка - заголовок, остальное текст
                 parts = translated_combined.split('\n', 1)
                 final_title = parts[0].strip()
                 final_text = parts[1].strip() if len(parts) > 1 else ""
