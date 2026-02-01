@@ -14,8 +14,8 @@ from PIL import Image
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # --- КОНФИГУРАЦИЯ ---
-# Храним историю 5000 последних постов, чтобы точно не было дублей
-MAX_POSTED_RECORDS = 5000 
+# Храним историю 500 последних постов, чтобы точно не было дублей
+MAX_POSTED_RECORDS = 500
 WATERMARK_SCALE = 0.35
 
 # Таймауты для отправки фото через WARP
