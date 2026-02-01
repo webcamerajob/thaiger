@@ -134,6 +134,35 @@
     "translated_to": "ru"
   },
   {
+    "id": "973606",
+    "slug": "pm-candidate-sparks-controversy-after-claim-to-buy-10-nuclear-warheads",
+    "date": "2026-01-06T13:18:16",
+    "link": "https://thethaiger.com/news/national/pm-candidate-sparks-controversy-after-claim-to-buy-10-nuclear-warheads",
+    "title": "Кандидат в премьер-министр вызвал споры после заявления о покупке 10 ядерных боеголовок",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Thaiger-Cover-Picture-2026-01-06T130106.070.jpg",
+      "Thaiger-Cover-Picture-2026-01-06T130232.527.jpg"
+    ],
+    "posted": false,
+    "hash": "f994f25c20e8ebb9ba9c561cd80ddd29a5b84294e6fece1f977b5df890f0c803",
+    "translated_to": "ru"
+  },
+  {
+    "id": "973616",
+    "slug": "thai-army-cambodia-border-mortar-warning",
+    "date": "2026-01-06T13:22:08",
+    "link": "https://thethaiger.com/news/national/thai-army-cambodia-border-mortar-warning",
+    "title": "Армия Таиланда предупредила Камбоджу после попадания миномета в Убонратчатхани",
+    "text_file": "content.ru.txt",
+    "images": [
+      "Guide-Article-Template-13.jpg"
+    ],
+    "posted": false,
+    "hash": "6294d4f970348204579b2ebeaa501e95217401483cef4fd795e506c03faa066d",
+    "translated_to": "ru"
+  },
+  {
     "id": "973635",
     "slug": "phuket-entertainment-venue-operators-demand-probe-into-alleged-bribery",
     "date": "2026-01-06T13:54:13",
