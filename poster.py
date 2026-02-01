@@ -108,7 +108,7 @@ async def _post_with_retry(client: httpx.AsyncClient, method: str, url: str, dat
             await asyncio.sleep(RETRY_DELAY * attempt)
     return False
 
-async def send_media_group(client: httpx.AsyncClient, token: str, chat_id: str, images: List[Path], watermark_scale: float) -> bool:
+async def send_media_group(client: httpx.AsyncClient, token: str, chat_id: str, images: List[Path], watermark_scale: float, silent: bool = True) -> bool:
     url = f"https://api.telegram.org/bot{token}/sendMediaGroup"
     media, files = [], {}
     loop = asyncio.get_running_loop()
@@ -124,19 +124,19 @@ async def send_media_group(client: httpx.AsyncClient, token: str, chat_id: str, 
     
     data = {
         "chat_id": chat_id, 
-        "media": json.dumps(media)
-#        "disable_notification": True  # Отключает звук уведомления для альбома
+        "media": json.dumps(media),
+        "disable_notification": silent  # Если True — звука нет
     }
     return await _post_with_retry(client, "POST", url, data, files)
 
-async def send_message(client: httpx.AsyncClient, token: str, chat_id: str, text: str, **kwargs) -> bool:
+async def send_message(client: httpx.AsyncClient, token: str, chat_id: str, text: str, silent: bool = True, **kwargs) -> bool:
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     data = {
         "chat_id": chat_id, 
         "text": text, 
         "parse_mode": "HTML", 
-        "disable_web_page_preview": True
-#        "disable_notification": True  # Отключает звук уведомления для текстового сообщения
+        "disable_web_page_preview": True,
+        "disable_notification": silent  # Если True — звука нет
     }
     if kwargs.get("reply_markup"):
         data["reply_markup"] = json.dumps(kwargs["reply_markup"])
@@ -217,21 +217,22 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int], watermark
     logging.info(f"Найдено {len(articles_to_post)} статей для отправки.")
 
     async with httpx.AsyncClient() as client:
+        # Определяем, сколько статей мы РЕАЛЬНО будем постить
+        to_process = articles_to_post[:limit] if limit else articles_to_post
+        total_to_send = len(to_process)
         sent_count = 0
-        for article in articles_to_post:
-            if limit is not None and sent_count >= limit:
-                logging.info(f"🛑 Достигнут лимит пакета ({limit} статей).")
-                break
-
-            logging.info(f"🚀 Публикация ID={article['id']}...")
+        
+        for idx, article in enumerate(to_process):
+            # Проверяем: это самая последняя статья в текущем запуске?
+            is_last_article = (idx == total_to_send - 1)
+            
+            logging.info(f"🚀 Публикация ID={article['id']} (Статья {idx+1}/{total_to_send})...")
             try:
-                # 1. Сначала отправляем альбом с картинками
+                # 1. Альбом ВСЕГДА шлем тихо
                 if article["image_paths"]:
-                    await send_media_group(client, token, chat_id, article["image_paths"], watermark_scale)
+                    await send_media_group(client, token, chat_id, article["image_paths"], watermark_scale, silent=True)
                 
-                # 2. Подготовка и отправка текста
                 raw_text = article["text_path"].read_text(encoding="utf-8")
-                # Очищаем текст от заголовка, если он там продублирован
                 cleaned_text = raw_text.lstrip()
                 if cleaned_text.startswith(article["original_title"]):
                     cleaned_text = cleaned_text[len(article["original_title"]):].lstrip()
@@ -240,33 +241,33 @@ async def main(parsed_dir: str, state_path: str, limit: Optional[int], watermark
                 full_html = re.sub(r'\n{3,}', '\n\n', full_html).strip()
                 chunks = chunk_text(full_html)
 
-                for i, chunk in enumerate(chunks):
-                    is_last = (i == len(chunks) - 1)
-                    # Добавляем кнопки только к последнему куску текста
+                for c_idx, chunk in enumerate(chunks):
+                    is_last_chunk = (c_idx == len(chunks) - 1)
+                    
+                    # Звук включится ТОЛЬКО если это последняя статья И последний чанк в ней
+                    should_be_silent = not (is_last_article and is_last_chunk)
+                    
                     reply_markup = { 
                         "inline_keyboard": [[ 
                             {"text": "💵 Обмен валют", "url": "https://t.me/mister1dollar"}, 
                             {"text": "✍️ Отзывы", "url": "https://t.me/feedback1dollar"} 
                         ]]
-                    } if is_last else None
+                    } if is_last_chunk else None
                     
-                    if not await send_message(client, token, chat_id, chunk, reply_markup=reply_markup):
+                    if not await send_message(client, token, chat_id, chunk, silent=should_be_silent, reply_markup=reply_markup):
                         raise Exception(f"Не удалось отправить текст статьи {article['id']}")
+                    
                     await asyncio.sleep(0.5)
 
-                # --- КЛЮЧЕВОЙ МОМЕНТ: Сохраняем прогресс сразу после успеха ---
                 logging.info(f"✅ Статья ID={article['id']} успешно опубликована.")
                 posted_ids.add(article['id'])
                 save_posted_ids(posted_ids, state_file)
-                # -------------------------------------------------------------
                 
                 sent_count += 1
-                # Задержка между статьями
                 await asyncio.sleep(float(os.getenv("POST_DELAY", DEFAULT_DELAY)))
 
             except Exception as e:
                 logging.error(f"❌ Сбой при публикации ID={article['id']}: {e}")
-                # Если одна статья упала, продолжаем следующую (или можно выйти, если ошибка критична)
                 continue
 
     logging.info(f"🏁 Сессия завершена. Опубликовано статей: {sent_count}")
