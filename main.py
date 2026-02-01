@@ -1,432 +1,285 @@
-import argparse
-import logging
-import json
-import hashlib
-import time
-import re
 import os
-import shutil
-import html
-import fcntl
+import json
+import argparse
+import asyncio
+import logging
+import re
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Set
-from datetime import datetime
-
-import requests 
-from bs4 import BeautifulSoup
-from curl_cffi import requests as cffi_requests, CurlHttpVersion
+from typing import Any, Dict, List, Optional, Set, Tuple
+from io import BytesIO
+import httpx
+from httpx import HTTPStatusError, ReadTimeout, Timeout
+from PIL import Image
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # --- КОНФИГУРАЦИЯ ---
-OUTPUT_DIR = Path("articles")
-CATALOG_PATH = OUTPUT_DIR / "catalog.json"
-MAX_RETRIES = 3
-BASE_DELAY = 1.0
-MAX_POSTED_RECORDS = 300
-FETCH_DEPTH = 100
+# Храним историю 5000 последних постов, чтобы точно не было дублей
+MAX_POSTED_RECORDS = 5000 
+WATERMARK_SCALE = 0.35
 
-# Константа для порта WARP (Socks5 с удаленным DNS)
-WARP_PROXY = "socks5h://127.0.0.1:40000"
+# Таймауты для отправки фото через WARP
+HTTPX_TIMEOUT = Timeout(connect=20.0, read=60.0, write=120.0, pool=10.0)
 
-# --- НАСТРОЙКИ СЕТИ (Твой вариант) ---
-# Глобальная сессия для парсинга
-SCRAPER = cffi_requests.Session(
-    impersonate="chrome110",
-    proxies={
-        "http": WARP_PROXY,
-        "https": WARP_PROXY
-    },
-    http_version=CurlHttpVersion.V1_1
-)
+MAX_RETRIES   = 3
+RETRY_DELAY   = 5.0
+DEFAULT_DELAY = 10.0
 
-IPHONE_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://www.google.com/",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "cross-site",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": "1"
-}
+def escape_html(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-# Применяем заголовки к сессии
-SCRAPER.headers = IPHONE_HEADERS
-SCRAPER_TIMEOUT = 60 
-BAD_RE = re.compile(r"[\u200b-\u200f\uFEFF\u200E\u00A0]")
-
-# --- ПРЯМОЙ ПЕРЕВОДЧИК (GTX) ---
-def translate_text(text: str, to_lang: str = "ru") -> str:
-    if not text: return ""
-
-    chunks = []
-    current_chunk = ""
-    for paragraph in text.split('\n'):
-        if len(paragraph) > 1800:
-            if current_chunk:
+def chunk_text(text: str, size: int = 4096) -> List[str]:
+    paras = [p for p in text.replace('\r\n', '\n').split('\n\n') if p.strip()]
+    chunks, current_chunk = [], ""
+    for p in paras:
+        if len(p) > size:
+            if current_chunk: chunks.append(current_chunk)
+            parts, sub_part = [], ""
+            for word in p.split():
+                if len(sub_part) + len(word) + 1 > size:
+                    parts.append(sub_part)
+                    sub_part = word
+                else:
+                    sub_part = f"{sub_part} {word}".lstrip()
+            if sub_part: parts.append(sub_part)
+            chunks.extend(parts)
+            current_chunk = ""
+        else:
+            if not current_chunk: current_chunk = p
+            elif len(current_chunk) + len(p) + 2 <= size: current_chunk += f"\n\n{p}"
+            else:
                 chunks.append(current_chunk)
-                current_chunk = ""
-            chunks.append(paragraph)
-            continue
-
-        if len(current_chunk) + len(paragraph) < 1800:
-            current_chunk += paragraph + "\n"
-        else:
-            chunks.append(current_chunk)
-            current_chunk = paragraph + "\n"
+                current_chunk = p
     if current_chunk: chunks.append(current_chunk)
+    return chunks
 
-    translated_parts = []
-    url = "https://translate.googleapis.com/translate_a/single"
-    # Для гугл переводчика прокси лучше отключить или использовать обычный requests
-    # чтобы не гонять лишний трафик через WARP, но можно и через него.
-    # Здесь используем обычный requests (без прокси), так как гугл обычно не блокирует GitHub.
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"}
-
-    for chunk in chunks:
-        if not chunk.strip():
-            translated_parts.append("")
-            continue
-        try:
-            params = {
-                "client": "gtx", "sl": "en", "tl": to_lang, "dt": "t", "q": chunk.strip()
-            }
-            # Используем стандартный requests для перевода
-            r = requests.get(url, params=params, headers=headers, timeout=10)
-            if r.status_code == 200:
-                data = r.json()
-                text_part = "".join([item[0] for item in data[0] if item and item[0]])
-                translated_parts.append(text_part)
-            else:
-                logging.warning(f"⚠️ Ошибка перевода куска: {r.status_code}")
-                translated_parts.append(chunk)
-            time.sleep(0.3)
-        except Exception as e:
-            logging.error(f"⚠️ Сбой перевода: {e}")
-            translated_parts.append(chunk)
-
-    return "\n".join(translated_parts)
-
-# --- ОЧИСТКА ---
-def cleanup_old_articles(posted_ids_path: Path, articles_dir: Path):
-    if not posted_ids_path.is_file() or not articles_dir.is_dir(): return
+def apply_watermark(img_path: Path, scale: float) -> bytes:
     try:
-        with open(posted_ids_path, 'r', encoding='utf-8') as f:
-            all_posted = json.load(f)
-            ids_to_keep = set(str(x) for x in all_posted[-MAX_POSTED_RECORDS:])
-        cleaned = 0
-        for f in articles_dir.iterdir():
-            if f.is_dir():
-                parts = f.name.split('_', 1)
-                if parts and parts[0].isdigit():
-                    if parts[0] not in ids_to_keep:
-                        shutil.rmtree(f); cleaned += 1
-        if cleaned: logging.info(f"🧹 Удалено {cleaned} старых папок.")
-    except Exception: pass
+        base_img = Image.open(img_path).convert("RGBA")
+        base_width, _ = base_img.size
+        
+        watermark_path = Path(__file__).parent / "watermark.png"
+        
+        if not watermark_path.exists():
+            img_byte_arr = BytesIO()
+            base_img.convert("RGB").save(img_byte_arr, format='JPEG', quality=90)
+            return img_byte_arr.getvalue()
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ---
-def normalize_text(text: str) -> str:
-    for s, v in {'–': '-', '—': '-', '“': '"', '”': '"', '‘': "'", '’': "'"}.items(): text = text.replace(s, v)
-    return text
-
-def sanitize_text(text: str) -> str:
-    if not text: return ""
-    text = html.unescape(text)
-    text = re.sub(r'<[^>]+>', '', text)
-    text = re.sub(r'mce_SELRES_[^ ]+', '', text)
-    return re.sub(r'\n{3,}', '\n\n', text).strip()
-
-def load_posted_ids(state_file_path: Path) -> Set[str]:
-    try:
-        if state_file_path.exists():
-            with open(state_file_path, 'r', encoding='utf-8') as f:
-                fcntl.flock(f, fcntl.LOCK_SH)
-                return {str(item) for item in json.load(f)}
-        return set()
-    except Exception: return set()
-
-def load_stopwords(file_path: Optional[Path]) -> List[str]:
-    if not file_path or not file_path.exists(): return []
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return [line.strip().lower() for line in f if line.strip()]
-    except Exception: return []
-
-# --- КАРТИНКИ ---
-def extract_img_url(img_tag: Any) -> Optional[str]:
-    width_attr = img_tag.get("width")
-    if width_attr and width_attr.isdigit():
-        if int(width_attr) < 400: return None
-
-    def is_junk(url_str: str) -> bool:
-        u = url_str.lower()
-        bad = ["gif", "logo", "banner", "icon", "avatar", "button", "share", "pixel", "tracker"]
-        if any(b in u for b in bad): return True
-        if re.search(r'-\d{2,3}x\d{2,3}\.', u): return True
-        return False
-
-    srcset = img_tag.get("srcset") or img_tag.get("data-srcset")
-    if srcset:
-        try:
-            parts = srcset.split(',')
-            links = []
-            for p in parts:
-                match = re.search(r'(\S+)\s+(\d+)w', p.strip())
-                if match: 
-                    w_val = int(match.group(2))
-                    u_val = match.group(1)
-                    if w_val >= 400: links.append((w_val, u_val))
-            if links:
-                best_link = sorted(links, key=lambda x: x[0], reverse=True)[0][1]
-                if not is_junk(best_link): 
-                    return best_link.split('?')[0]
-        except Exception: pass
-
-    attrs = ["data-orig-file", "data-large-file", "data-src", "data-lazy-src", "src"]
-    for attr in attrs:
-        if val := img_tag.get(attr):
-            clean_val = val.split()[0].split(',')[0].split('?')[0]
-            if not is_junk(clean_val): return clean_val
-
-    return None
-
-def save_image(url, folder):
-    folder.mkdir(parents=True, exist_ok=True)
-    fn = url.rsplit('/',1)[-1].split('?',1)[0]
-    if len(fn) > 50: fn = hashlib.md5(fn.encode()).hexdigest() + ".jpg"
-    dest = folder / fn
-    try:
-        # Используем make_request/SCRAPER для скачивания через прокси
-        resp = make_request("GET", url) 
-        dest.write_bytes(resp.content)
-        return str(dest)
-    except Exception: return None
-
-# --- ЗАПРОСЫ (С ПОВТОРАМИ И WARP) ---
-def make_request(method: str, url: str, **kwargs):
-    """Обертка для запросов через SCRAPER (с прокси) с повторами"""
-    retries = 3
-    for i in range(retries):
-        try:
-            kwargs.setdefault("timeout", SCRAPER_TIMEOUT)
-            
-            if method.upper() == "GET":
-                response = SCRAPER.get(url, **kwargs)
-            else:
-                response = SCRAPER.request(method, url, **kwargs)
-
-            if response.status_code in [403, 429]:
-                logging.warning(f"⚠️ Блок или лимит ({response.status_code}). Ждем 20с... (WARP Proxy)")
-                time.sleep(20)
-                continue
-            
-            response.raise_for_status()
-            return response
-
-        except Exception as e:
-            logging.warning(f"⚠️ Ошибка сети (WARP): {e}. Попытка {i+1}/{retries}")
-            time.sleep(10 * (i + 1))
-    
-    raise Exception(f"❌ Не удалось получить данные с {url} через прокси {WARP_PROXY}")
-
-def fetch_cat_id(url, slug):
-    logging.info(f"Получение ID категории '{slug}' через WARP...")
-    r = make_request("GET", f"{url}/wp-json/wp/v2/categories?slug={slug}")
-    data = r.json()
-    if not data: raise RuntimeError("Cat not found")
-    return data[0]["id"]
-
-def fetch_posts(url, cid, limit):
-    logging.info(f"Запрос постов (limit={limit}) через WARP...") 
-    try:
-        r = make_request("GET", f"{url}/wp-json/wp/v2/posts", 
-                         params={"categories": cid, "per_page": limit, "_embed": "true"})
-        return r.json()
+        watermark_img = Image.open(watermark_path).convert("RGBA")
+        wm_width, wm_height = watermark_img.size
+        
+        new_wm_width = int(base_width * scale)
+        if new_wm_width <= 0: new_wm_width = 1
+        new_wm_height = int(wm_height * (new_wm_width / wm_width))
+        
+        resample_filter = getattr(Image.Resampling, "LANCZOS", Image.LANCZOS)
+        watermark_img = watermark_img.resize((new_wm_width, new_wm_height), resample=resample_filter)
+        
+        overlay = Image.new("RGBA", base_img.size, (0, 0, 0, 0))
+        padding = int(base_width * 0.02)
+        position = (base_width - new_wm_width - padding, padding)
+        
+        overlay.paste(watermark_img, position, watermark_img)
+        composite_img = Image.alpha_composite(base_img, overlay).convert("RGB")
+        
+        img_byte_arr = BytesIO()
+        composite_img.save(img_byte_arr, format='JPEG', quality=90)
+        return img_byte_arr.getvalue()
     except Exception as e:
-        logging.error(f"Ошибка получения постов: {e}")
-        return []
+        logging.error(f"Не удалось наложить водяной знак на {img_path}: {e}")
+        return b""
 
-# --- ПАРСИНГ ---
-def parse_and_save(post, lang, stopwords):
-    time.sleep(2)
-    aid, slug, link = str(post["id"]), post["slug"], post.get("link")
-
-    raw_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
-    title = sanitize_text(raw_title)
-
-    if stopwords:
-        for ph in stopwords:
-            if ph in title.lower():
-                logging.info(f"🚫 ID={aid}: Стоп-слово '{ph}'")
-                return None
-
-    try:
-        html_txt = make_request("GET", link).text
-    except Exception: return None
-
-    meta_path = OUTPUT_DIR / f"{aid}_{slug}" / "meta.json"
-    curr_hash = hashlib.sha256(html_txt.encode()).hexdigest()
-    if meta_path.exists():
+async def _post_with_retry(client: httpx.AsyncClient, method: str, url: str, data: Dict[str, Any], files: Optional[Dict[str, Any]] = None) -> bool:
+    for attempt in range(1, MAX_RETRIES + 1):
         try:
-            m = json.loads(meta_path.read_text(encoding="utf-8"))
-            if m.get("hash") == curr_hash:
-                logging.info(f"⏭️ ID={aid}: Без изменений.")
-                return m
-        except: pass
-
-    logging.info(f"Processing ID={aid}: {title[:30]}...")
-
-    soup = BeautifulSoup(html_txt, "html.parser")
-
-    for r in soup.find_all("div", class_="post-widget-thumbnail"): r.decompose()
-    for j in soup.find_all(["span", "div", "script", "style", "iframe"]):
-        if not hasattr(j, 'attrs') or j.attrs is None: continue 
-        c = str(j.get("class", ""))
-        if j.get("data-mce-type") or "mce_SELRES" in c or "widget" in c: j.decompose()
-
-    paras = []
-    if c_div := soup.find("div", class_="entry-content"):
-        for r in c_div.find_all(["ul", "ol", "div"], class_=re.compile(r"rp4wp|related|ad-")): r.decompose()
-        paras = [sanitize_text(p.get_text(strip=True)) for p in c_div.find_all("p")]
-
-    raw_txt_clean = BAD_RE.sub("", "\n\n".join(paras))
-
-    # Картинки
-    srcs = set()
-    for link_tag in soup.find_all("a", class_="ci-lightbox", limit=10):
-        if h := link_tag.get("href"): 
-            if "gif" not in h.lower(): srcs.add(h)
-
-    if c_div:
-        for img in c_div.find_all("img"):
-            if u := extract_img_url(img): srcs.add(u)
-
-    images = []
-    if srcs:
-        with ThreadPoolExecutor(5) as ex:
-            futs = {ex.submit(save_image, u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): u for u in list(srcs)[:10]}
-            for f in as_completed(futs):
-                if p:=f.result(): images.append(p)
-
-    if not images and "_embedded" in post and (m:=post["_embedded"].get("wp:featuredmedia")):
-        if isinstance(m, list) and (u:=m[0].get("source_url")):
-             if "300x200" not in u and "150x150" not in u and "logo" not in u.lower():
-                if p:=save_image(u, OUTPUT_DIR / f"{aid}_{slug}" / "images"): images.append(p)
-
-    if not images:
-        logging.warning(f"⚠️ ID={aid}: Нет картинок. Skip.")
-        return None
-
-    # Перевод
-    final_title = title
-    final_text = raw_txt_clean
-    translated_lang = ""
-
-    if lang:
-        DELIMITER = " ||| " 
-        combined_text = f"{title}{DELIMITER}{raw_txt_clean}"
-        translated_combined = translate_text(combined_text, lang)
-
-        if translated_combined:
-            if DELIMITER in translated_combined:
-                parts = translated_combined.split(DELIMITER, 1)
-                final_title = parts[0].strip()
-                final_text = parts[1].strip()
-            elif "|||" in translated_combined:
-                parts = translated_combined.split("|||", 1)
-                final_title = parts[0].strip()
-                final_text = parts[1].strip()
+            resp = await client.request(method, url, data=data, files=files, timeout=HTTPX_TIMEOUT)
+            resp.raise_for_status()
+            return True
+        except HTTPStatusError as e:
+            if e.response.status_code == 429:
+                retry_after = int(e.response.json().get("parameters", {}).get("retry_after", RETRY_DELAY))
+                logging.warning(f"🐢 Лимит запросов. Ждем {retry_after} сек...")
+                await asyncio.sleep(retry_after)
+            elif 400 <= e.response.status_code < 500:
+                logging.error(f"❌ Ошибка клиента {e.response.status_code}: {e.response.text}")
+                return False
             else:
-                parts = translated_combined.split('\n', 1)
-                final_title = parts[0].strip()
-                final_text = parts[1].strip() if len(parts) > 1 else ""
-            translated_lang = lang
+                logging.warning(f"⚠️ Ошибка сервера {e.response.status_code}. Попытка {attempt}/{MAX_RETRIES}...")
+                await asyncio.sleep(RETRY_DELAY * attempt)
+        except (ReadTimeout, httpx.RequestError) as e:
+            logging.warning(f"⏱️ Ошибка сети: {e}. Попытка {attempt}/{MAX_RETRIES}...")
+            await asyncio.sleep(RETRY_DELAY * attempt)
+    logging.error(f"☠️ Не удалось выполнить запрос к {url} после {MAX_RETRIES} попыток.")
+    return False
 
-    final_title = sanitize_text(final_title)
+async def send_media_group(client: httpx.AsyncClient, token: str, chat_id: str, images: List[Path], watermark_scale: float) -> bool:
+    url = f"https://api.telegram.org/bot{token}/sendMediaGroup"
+    media, files = [], {}
+    
+    loop = asyncio.get_running_loop()
+    
+    for idx, img_path in enumerate(images[:10]):
+        image_bytes = await loop.run_in_executor(None, apply_watermark, img_path, watermark_scale)
+        if image_bytes:
+            key = f"photo{idx}"
+            files[key] = (f"img_{idx}.jpg", image_bytes, "image/jpeg")
+            media.append({"type": "photo", "media": f"attach://{key}"})
+            
+    if not media: return False
+        
+    data = {"chat_id": chat_id, "media": json.dumps(media)}
+    return await _post_with_retry(client, "POST", url, data, files)
 
-    art_dir = OUTPUT_DIR / f"{aid}_{slug}"
-    art_dir.mkdir(parents=True, exist_ok=True)
+async def send_message(client: httpx.AsyncClient, token: str, chat_id: str, text: str, **kwargs) -> bool:
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    data = {"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}
+    if kwargs.get("reply_markup"):
+        data["reply_markup"] = json.dumps(kwargs["reply_markup"])
+    return await _post_with_retry(client, "POST", url, data)
 
-    (art_dir / "content.txt").write_text(raw_txt_clean, encoding="utf-8")
+def validate_article(art: Dict[str, Any], article_dir: Path) -> Optional[Tuple[str, Path, List[Path], str]]:
+    aid = art.get("id")
+    title = art.get("title", "").strip()
+    text_filename = art.get("text_file")
+    if not all([aid, title, text_filename]): return None
+    text_path = article_dir / text_filename
+    if not text_path.is_file(): return None
+    images_dir = article_dir / "images"
+    valid_imgs: List[Path] = []
+    if images_dir.is_dir():
+        valid_imgs = sorted([p for p in images_dir.iterdir() if p.suffix.lower() in {".jpg", ".jpeg", ".png"}])
+    html_title = f"<b>{escape_html(title)}</b>"
+    return html_title, text_path, valid_imgs, title
 
-    meta = {
-        "id": aid, "slug": slug, "date": post.get("date"), "link": link,
-        "title": final_title, "text_file": "content.txt",
-        "images": sorted([Path(p).name for p in images]), "posted": False,
-        "hash": curr_hash, "translated_to": ""
-    }
-
-    if translated_lang:
-        (art_dir / f"content.{lang}.txt").write_text(f"{final_title}\n\n{final_text}", encoding="utf-8")
-        meta.update({"translated_to": lang, "text_file": f"content.{lang}.txt"})
-
-    with open(meta_path, "w", encoding="utf-8") as f: json.dump(meta, f, ensure_ascii=False, indent=2)
-    return meta
-
-# --- MAIN ---
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--base-url", required=True)
-    parser.add_argument("--slug", default="national")
-    parser.add_argument("-n", "--limit", type=int, default=10)
-    parser.add_argument("-l", "--lang", default="ru")
-    parser.add_argument("--posted-state-file", default="articles/posted.json")
-    parser.add_argument("--stopwords-file", default="stopwords.txt")
-    args = parser.parse_args()
-
+# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ЗАГРУЗКИ ---
+def load_posted_ids(state_file: Path) -> Set[str]:
+    """Загружает ВСЕ ID из файла, чтобы избежать дубликатов."""
+    if not state_file.is_file(): return set()
     try:
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        cleanup_old_articles(Path(args.posted_state_file), OUTPUT_DIR)
-
-        cid = fetch_cat_id(args.base_url, args.slug)
-        # Получаем 100 последних постов (от новых к старым)
-        posts = fetch_posts(args.base_url, cid, FETCH_DEPTH)
-
-        posted = load_posted_ids(Path(args.posted_state_file))
-        stop = load_stopwords(Path(args.stopwords_file))
-        catalog = []
-        if CATALOG_PATH.exists():
-            with open(CATALOG_PATH, 'r') as f: catalog=json.load(f)
-
-        new_posts = [p for p in posts if str(p["id"]) not in posted]
-        logging.info(f"Всего постов: {len(posts)}, новых: {len(new_posts)}")
-
-        if not new_posts:
-            print("NEW_ARTICLES_STATUS:false")
-            return
-
-        new_posts.reverse()
-        posts_to_process = new_posts[:args.limit]
-        processed = []
-        count = 0
-
-        logging.info(f"Будем обрабатывать {len(posts_to_process)} постов...")
-
-        for post in posts_to_process:
-            if count >= args.limit: break
-            if meta := parse_and_save(post, args.lang, stop):
-                processed.append(meta)
-                count += 1
-
-        if processed:
-            for m in processed:
-                catalog = [i for i in catalog if i.get("id") != m["id"]]
-                catalog.append(m)
-            try:
-                catalog.sort(key=lambda x: int(x.get("id", 0)))
-            except: pass
-            with open(CATALOG_PATH, "w", encoding="utf-8") as f:
-                json.dump(catalog, f, ensure_ascii=False, indent=2)
-            print("NEW_ARTICLES_STATUS:true")
-        else:
-            print("NEW_ARTICLES_STATUS:false")
-
+        data = json.loads(state_file.read_text(encoding="utf-8"))
+        if not isinstance(data, list): return set()
+        
+        # ВАЖНО: Мы НЕ обрезаем список здесь. Мы должны знать обо ВСЕХ старых постах.
+        return {str(item) for item in data if item is not None}
     except Exception:
-        logging.exception("Fatal error:")
-        exit(1)
+        return set()
+
+# --- ФУНКЦИЯ СОХРАНЕНИЯ ---
+def save_posted_ids(all_ids_to_save: Set[str], state_file: Path) -> None:
+    """Сохраняет ID. Обрезает только если их слишком много (>5000)."""
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        # Преобразуем в int для сортировки, потом обратно
+        sorted_ids = sorted([int(i) for i in all_ids_to_save])
+        
+        # Оставляем 5000 последних
+        if len(sorted_ids) > MAX_POSTED_RECORDS:
+            sorted_ids = sorted_ids[-MAX_POSTED_RECORDS:]
+            
+        with state_file.open("w", encoding="utf-8") as f:
+            json.dump(sorted_ids, f, ensure_ascii=False, indent=2)
+            
+        logging.info(f"Сохранено {len(sorted_ids)} ID в posted.json")
+    except Exception as e:
+        logging.error(f"Ошибка сохранения состояния: {e}")
+
+async def main(parsed_dir: str, state_path: str, limit: Optional[int], watermark_scale: float):
+    token, chat_id = os.getenv("TELEGRAM_TOKEN"), os.getenv("TELEGRAM_CHANNEL")
+    if not token or not chat_id:
+        logging.error("❌ Не заданы TELEGRAM_TOKEN или TELEGRAM_CHANNEL")
+        return
+
+    parsed_root, state_file = Path(parsed_dir), Path(state_path)
+    posted_ids = load_posted_ids(state_file)
+    logging.info(f"Загружено {len(posted_ids)} опубликованных статей (история).")
+    
+    articles_to_post = []
+    if parsed_root.is_dir():
+        for d in sorted(parsed_root.iterdir()):
+            meta_file = d / "meta.json"
+            if d.is_dir() and meta_file.is_file():
+                try:
+                    art_meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                    article_id = str(art_meta.get("id"))
+                    
+                    # Проверка на дубликат
+                    if article_id and article_id not in posted_ids:
+                        if validated_data := validate_article(art_meta, d):
+                            _, text_path, image_paths, original_title = validated_data
+                            articles_to_post.append({
+                                "id": article_id, "html_title": f"<b>{escape_html(original_title)}</b>",
+                                "text_path": text_path, "image_paths": image_paths,
+                                "original_title": original_title
+                            })
+                    else:
+                        pass # Статья уже была опубликована
+                except Exception: pass
+
+    # Сортировка: от старых к новым
+    articles_to_post.sort(key=lambda x: int(x["id"]))
+    
+    if not articles_to_post:
+        logging.info("🔍 Нет новых статей для публикации.")
+        return
+
+    logging.info(f"Найдено {len(articles_to_post)} новых статей. Начинаем публикацию...")
+
+    async with httpx.AsyncClient() as client:
+        sent_count = 0
+        newly_posted_ids: Set[str] = set()
+
+        for article in articles_to_post:
+            if limit is not None and sent_count >= limit:
+                logging.info(f"🛑 Лимит {limit} достигнут.")
+                break
+
+            logging.info(f"🚀 Публикация ID={article['id']}...")
+            try:
+                # Отправка фото
+                if article["image_paths"]:
+                    success = await send_media_group(client, token, chat_id, article["image_paths"], watermark_scale)
+                    if not success:
+                         logging.warning("⚠️ Фото не ушли, пробуем текст.")
+
+                # Текст
+                raw_text = article["text_path"].read_text(encoding="utf-8")
+                cleaned_text = raw_text.lstrip()
+                if cleaned_text.startswith(article["original_title"]):
+                    cleaned_text = cleaned_text[len(article["original_title"]):].lstrip()
+
+                full_html = f"{article['html_title']}\n\n{escape_html(cleaned_text)}"
+                full_html = re.sub(r'\n{3,}', '\n\n', full_html).strip()
+                chunks = chunk_text(full_html)
+
+                for i, chunk in enumerate(chunks):
+                    is_last_chunk = (i == len(chunks) - 1)
+                    reply_markup = { "inline_keyboard": [[ {"text": "Обмен валют", "url": "https://t.me/mister1dollar"}, {"text": "Отзывы", "url": "https://t.me/feedback1dollar"} ]]} if is_last_chunk else None
+                    
+                    if not await send_message(client, token, chat_id, chunk, reply_markup=reply_markup):
+                        raise Exception("Ошибка отправки текста")
+                    await asyncio.sleep(0.5)
+
+                logging.info(f"✅ Успешно: ID={article['id']}")
+                newly_posted_ids.add(article['id'])
+                sent_count += 1
+
+            except Exception as e:
+                logging.error(f"❌ Сбой публикации ID={article['id']}: {e}")
+
+            await asyncio.sleep(float(os.getenv("POST_DELAY", DEFAULT_DELAY)))
+
+    # Сохраняем объединенный список (старые + новые)
+    if newly_posted_ids:
+        all_ids_to_save = posted_ids.union(newly_posted_ids)
+        save_posted_ids(all_ids_to_save, state_file)
+
+    logging.info(f"🏁 Завершено. Опубликовано: {sent_count}")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--parsed-dir", type=str, default="articles")
+    parser.add_argument("--state-file", type=str, default="articles/posted.json")
+    parser.add_argument("-n", "--limit", type=int, default=None)
+    parser.add_argument("--watermark-scale", type=float, default=WATERMARK_SCALE)
+    args = parser.parse_args()
+    asyncio.run(main(args.parsed_dir, args.state_file, args.limit, args.watermark_scale))
