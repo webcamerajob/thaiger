@@ -27,39 +27,42 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --- ИСПРАВЛЕННЫЙ БЛОК: Ручная установка WARP ---
-      # Используем флаг --accept-tos вместо yes |, чтобы избежать Broken pipe
+      # --- ИСПРАВЛЕННЫЙ БЛОК: Ручная установка WARP (с циклом ожидания) ---
       - name: Install & Configure WARP Manually
         run: |
-          # 1. Добавляем ключи и репозиторий Cloudflare
+          # 1. Добавляем ключи и репозиторий
           curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
           echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
           
-          # 2. Устанавливаем сам клиент
+          # 2. Установка
           sudo apt-get update
           sudo apt-get install -y cloudflare-warp
 
-          # 3. Регистрируем клиент (с флагом --accept-tos)
+          # 3. Регистрация и настройка (используем --accept-tos)
           sudo warp-cli --accept-tos registration new
-
-          # 4. Переключаем в режим прокси и ставим порт 40000
           sudo warp-cli --accept-tos mode proxy
           sudo warp-cli --accept-tos proxy port 40000
 
-          # 5. Подключаемся
+          # 4. Подключение
           sudo warp-cli --accept-tos connect
           
-          # 6. Ждем и проверяем статус
-          sleep 5
-          echo "Проверка работы прокси..."
-          if ! curl -x socks5://127.0.0.1:40000 -s https://www.cloudflare.com/cdn-cgi/trace | grep "warp=on"; then
-            echo "❌ WARP did not start correctly!"
-            sudo warp-cli --accept-tos status
-            sudo warp-cli --accept-tos net-log
-            exit 1
-          else
-            echo "✅ WARP is active on port 40000"
-          fi
+          # 5. ЦИКЛ ОЖИДАНИЯ (вместо sleep 5)
+          # Ждем до 30 секунд, проверяя соединение каждые 3 секунды
+          echo "⏳ Ожидание подключения WARP..."
+          for i in {1..10}; do
+            if curl -x socks5://127.0.0.1:40000 -s https://www.cloudflare.com/cdn-cgi/trace | grep "warp=on"; then
+              echo "✅ WARP успешно подключился! Порт 40000 активен."
+              exit 0
+            fi
+            echo "   Попытка $i: Статус 'Connecting'... ждем..."
+            sleep 3
+          done
+
+          # Если за 30 секунд не подключился
+          echo "❌ Не удалось подключиться к WARP за 30 секунд."
+          sudo warp-cli --accept-tos status
+          # Убрали команду net-log, так как она вызывает ошибку в новых версиях
+          exit 1
       # ----------------------------------------
 
       - name: Set up Python
