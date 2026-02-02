@@ -171,22 +171,39 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     raw_text = re.sub(r"[ \t]+", " ", raw_text)
     raw_text = re.sub(r"\n{3,}", "\n\n", raw_text)
 
-    # 4. Загрузка изображений
-    img_dir = art_dir / "images"
-    srcs = [extract_img_url(img) for img in soup.find_all("img")[:10]]
-    srcs = [s for s in srcs if s]
+    # 4. СБОР ИЗОБРАЖЕНИЙ (С приоритетом на Featured Area)
+    srcs = []
     
+    if full_soup:
+        # Ищем строго в контейнере главной картинки, чтобы не собрать 100+ мусорных превью
+        featured_area = full_soup.find("div", class_="featured-area") or full_soup.find("figure", class_="single-featured-image")
+        if featured_area:
+            main_img = featured_area.find("img")
+            if main_img:
+                url = extract_img_url(main_img)
+                if url:
+                    srcs.append(url)
+                    logging.info(f"📸 Найдена главная картинка в featured-area для ID={aid}")
+
+    # Добавляем картинки из текста (entry-content)
+    for img in soup.find_all("img")[:10]:
+        url = extract_img_url(img)
+        if url and url not in srcs:
+            srcs.append(url)
+
+    # Резервный вариант из API (_embedded)
     if not srcs and "_embedded" in post:
         media = post["_embedded"].get("wp:featuredmedia")
         if media and media[0].get("source_url"): 
             srcs.append(media[0]["source_url"])
 
     images = []
-    with ThreadPoolExecutor(max_workers=5) as ex:
-        futures = {ex.submit(save_image, url, img_dir): url for url in srcs}
-        for fut in as_completed(futures):
-            if path := fut.result():
-                images.append(Path(path).name) # Сохраняем ТОЛЬКО имя файла
+    if srcs:
+        with ThreadPoolExecutor(max_workers=5) as ex:
+            futures = {ex.submit(save_image, url, art_dir / "images"): url for url in srcs}
+            for fut in as_completed(futures):
+                if path := fut.result():
+                    images.append(Path(path).name)
 
     if not images:
         logging.warning(f"No images for ID={aid}. Skipping.")
