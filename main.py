@@ -136,7 +136,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     art_dir.mkdir(parents=True, exist_ok=True)
     meta_path = art_dir / "meta.json"
 
-    # 1. Проверка хэша контента
+    # 1. Проверка хэша
     content_html = post["content"]["rendered"]
     current_hash = hashlib.sha256(content_html.encode()).hexdigest()
     
@@ -148,117 +148,101 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
                 return existing_meta
         except: pass
 
-    # 2. Обработка заголовка и стоп-слов
+    # 2. Подготовка оригинального текста
     orig_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
-    title = orig_title
-    if any(s in title.lower() for s in stopwords):
+    
+    if any(s in orig_title.lower() for s in stopwords):
         logging.info(f"🚫 Stopword found in ID={aid}. Skipping.")
         return None
 
-    if translate_to:
-        title = translate_text(orig_title, translate_to)
-
-    # 3. Получение HTML страницы для поиска Featured Image (вне контента API)
-    link = post.get("link")
     soup = BeautifulSoup(content_html, "html.parser")
-    full_soup = None  # Инициализация, чтобы избежать NameError
+    for junk in soup.select(".related-posts, .ad-container, script, style, .jp-relatedposts"):
+        junk.decompose()
 
+    paras = [p.get_text(strip=True) for p in soup.find_all("p") if p.get_text(strip=True)]
+    clean_paras = [p for p in paras if not any(x in p.lower() for x in ["read also", "also read", "related stories"])]
+    raw_body = "\n\n".join(clean_paras)
+
+    # 3. КАРТИНКИ (Улучшенный поиск Featured Image)
+    srcs = []
+    link = post.get("link")
+    full_soup = None
     try:
-        # Пытаемся получить полную страницу через прокси WARP
         r = make_request("GET", link)
         if r.status_code == 200:
             full_soup = BeautifulSoup(r.text, "html.parser")
-    except Exception as e:
-        logging.warning(f"Could not fetch full page for ID={aid}: {e}")
+    except: pass
 
-    # 4. СБОР ИЗОБРАЖЕНИЙ (С приоритетом на Featured Area)
-    srcs = []
-    
     if full_soup:
-        # Ищем строго в контейнере главной картинки (Thaiger structure)
-        featured_area = full_soup.find("div", class_="featured-area") or \
-                        full_soup.find("figure", class_="single-featured-image") or \
-                        full_soup.find("div", class_="featured-area-inner")
-        if featured_area:
-            main_img = featured_area.find("img")
-            if main_img:
-                url = extract_img_url(main_img)
-                if url:
-                    srcs.append(url)
-                    logging.info(f"📸 Найдена главная картинка в featured-area для ID={aid}")
+        feat = full_soup.find("div", class_="featured-area") or full_soup.find("figure", class_="single-featured-image")
+        if feat and (m_img := feat.find("img")):
+            if u := extract_img_url(m_img): srcs.append(u)
 
-    # Добавляем картинки из текста (entry-content)
     for img in soup.find_all("img")[:10]:
-        url = extract_img_url(img)
-        if url and url not in srcs:
-            srcs.append(url)
-
-    # Резервный вариант из API (_embedded)
-    if not srcs and "_embedded" in post:
-        media = post["_embedded"].get("wp:featuredmedia")
-        if media and isinstance(media, list) and media[0].get("source_url"): 
-            srcs.append(media[0]["source_url"])
+        u = extract_img_url(img)
+        if u and u not in srcs: srcs.append(u)
 
     images = []
     if srcs:
         with ThreadPoolExecutor(max_workers=5) as ex:
             futures = {ex.submit(save_image, url, art_dir / "images"): url for url in srcs}
             for fut in as_completed(futures):
-                if path := fut.result():
-                    images.append(Path(path).name)
+                if path := fut.result(): images.append(Path(path).name)
 
     if not images:
         logging.warning(f"No images for ID={aid}. Skipping.")
         return None
 
-    # 5. Чистка и сохранение текста
-    # Удаляем мусорные блоки из контента ДО извлечения параграфов
-    for junk in soup.select(".related-posts, .ad-container, script, style, .jp-relatedposts"):
-        junk.decompose()
-
-    paras = [p.get_text(strip=True) for p in soup.find_all("p") if p.get_text(strip=True)]
-    
-    # Дополнительная фильтрация мусорных строк
-    clean_paras = []
-    for p in paras:
-        low_p = p.lower()
-        if any(x in low_p for x in ["read also", "also read", "related stories", "photo:"]):
-            continue
-        clean_paras.append(p)
-
-    raw_text = "\n\n".join(clean_paras)
-    raw_text = BAD_RE.sub("", raw_text)
-    raw_text = re.sub(r"[ \t]+", " ", raw_text)
-    raw_text = re.sub(r"\n{3,}", "\n\n", raw_text)
-
+    # 4. ПЕРЕВОД ЧАНКАМИ С СОХРАНЕНИЕМ КОНТЕКСТА ЗАГОЛОВКА
+    final_title = orig_title
+    final_body = raw_text = raw_body
     final_text_file = "content.txt"
-    (art_dir / "content.txt").write_text(raw_text, encoding="utf-8")
+    (art_dir / "content.txt").write_text(raw_body, encoding="utf-8")
 
     if translate_to:
-        logging.info(f"🌐 Translating content ID={aid}...")
-        try:
-            # Построчный перевод параграфов
-            trans = [translate_text(p, translate_to) for p in clean_paras]
-            
-            trans_file = f"content.{translate_to}.txt"
-            trans_content = f"{title}\n\n" + "\n\n".join(trans)
-            (art_dir / trans_file).write_text(trans_content, encoding="utf-8")
-            final_text_file = trans_file
-        except Exception as e:
-            logging.error(f"Translation error for ID={aid}: {e}")
+        logging.info(f"🌐 Translating ID={aid} (Title + Body context)...")
+        # Соединяем заголовок и тело через разделитель
+        full_text_to_translate = f"{orig_title}\n|||\n{raw_body}"
+        
+        # Разбиваем на чанки по 4500 символов (лимит Google ~5000)
+        chunks = []
+        while full_text_to_translate:
+            if len(full_text_to_translate) <= 4500:
+                chunks.append(full_text_to_translate)
+                break
+            # Ищем ближайший перенос строки, чтобы не резать по живому
+            split_idx = full_text_to_translate.rfind('\n', 0, 4500)
+            if split_idx == -1: split_idx = 4500
+            chunks.append(full_text_to_translate[:split_idx])
+            full_text_to_translate = full_text_to_translate[split_idx:].lstrip()
 
-    # 6. Метаданные
+        translated_chunks = []
+        for chunk in chunks:
+            translated_chunks.append(translate_text(chunk, translate_to))
+        
+        translated_full = "\n\n".join(translated_chunks)
+
+        # Отделяем заголовок от тела
+        if "|||" in translated_full:
+            parts = translated_full.split("|||", 1)
+            final_title = parts[0].strip()
+            final_body = parts[1].strip()
+        else:
+            # Fallback если разделитель съеден
+            parts = translated_full.split('\n', 1)
+            final_title = parts[0].strip()
+            final_body = parts[1].strip() if len(parts) > 1 else ""
+
+        trans_file = f"content.{translate_to}.txt"
+        (art_dir / trans_file).write_text(f"{final_title}\n\n{final_body}", encoding="utf-8")
+        final_text_file = trans_file
+
+    # 5. Метаданные
     meta = {
-        "id": aid,
-        "slug": slug,
-        "date": post.get("date"),
-        "link": link,
-        "title": title,
-        "text_file": final_text_file,
-        "images": sorted(list(set(images))),
-        "posted": False,
-        "hash": current_hash,
-        "translated_to": translate_to
+        "id": aid, "slug": slug, "date": post.get("date"), "link": link,
+        "title": final_title, "text_file": final_text_file,
+        "images": sorted(list(set(images))), "posted": False,
+        "hash": current_hash, "translated_to": translate_to
     }
 
     with open(meta_path, "w", encoding="utf-8") as f:
