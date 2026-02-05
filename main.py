@@ -8,6 +8,7 @@ import os
 import shutil
 import html
 import fcntl
+import subprocess  # Нужно для управления WARP
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Set
@@ -21,19 +22,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 # --- КОНФИГУРАЦИЯ ---
 OUTPUT_DIR = Path("articles")
 CATALOG_PATH = OUTPUT_DIR / "catalog.json"
-MAX_RETRIES = 3
+MAX_RETRIES = 5  # Количество попыток пробива
 BASE_DELAY = 1.0
 FETCH_DEPTH = 30
+SCRAPER_TIMEOUT = 60
+BAD_RE = re.compile(r"[\u200b-\u200f\uFEFF\u200E\u00A0]")
 
 # Константа для порта WARP (Socks5 с удаленным DNS)
 WARP_PROXY = "socks5h://127.0.0.1:40000"
-
-# --- НАСТРОЙКИ СЕТИ ---
-SCRAPER = cffi_requests.Session(
-    impersonate="chrome110",
-    proxies={"http": WARP_PROXY, "https": WARP_PROXY},
-    http_version=CurlHttpVersion.V1_1
-)
 
 IPHONE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -42,11 +38,90 @@ IPHONE_HEADERS = {
     "Upgrade-Insecure-Requests": "1"
 }
 
-SCRAPER.headers = IPHONE_HEADERS
-SCRAPER_TIMEOUT = 60 
-BAD_RE = re.compile(r"[\u200b-\u200f\uFEFF\u200E\u00A0]")
+# --- УПРАВЛЕНИЕ СЕТЬЮ И WARP ---
+
+def rotate_warp():
+    """Переподключает WARP для смены IP"""
+    logging.info("♻️ WARP: Ротация IP...")
+    try:
+        # Разрываем соединение
+        subprocess.run(["warp-cli", "disconnect"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(2)
+        # Подключаем снова
+        subprocess.run(["warp-cli", "connect"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        # Ждем стабилизации (WARP иногда тупит пару секунд после коннекта)
+        time.sleep(5)
+        logging.info("✅ WARP: Переподключено.")
+    except Exception as e:
+        logging.error(f"❌ Ошибка ротации WARP: {e}")
+
+def init_scraper():
+    """Создает новую сессию SCRAPER с чистым TLS-отпечатком"""
+    s = cffi_requests.Session(
+        impersonate="chrome120", # Версия браузера для маскировки
+        proxies={"http": WARP_PROXY, "https": WARP_PROXY},
+        http_version=CurlHttpVersion.V1_1
+    )
+    s.headers = IPHONE_HEADERS
+    return s
+
+# Инициализируем глобальную переменную сессии
+SCRAPER = init_scraper()
+
+def make_request(method, url, **kwargs):
+    """
+    Выполняет запрос с автоматической ротацией IP и сессии при блокировках Cloudflare.
+    """
+    global SCRAPER
+    kwargs.setdefault("timeout", SCRAPER_TIMEOUT)
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            resp = SCRAPER.request(method, url, **kwargs)
+            
+            # --- ПРОВЕРКА НА БЛОКИРОВКУ ---
+            is_blocked = False
+            
+            # 1. Проверка по статус кодам
+            if resp.status_code in [403, 429, 503]:
+                is_blocked = True
+                logging.warning(f"⚠️ Block detected (Status {resp.status_code}) for {url}")
+            
+            # 2. Проверка контента (если мы ждем API, а пришел HTML с капчей)
+            # Для WP API ответ должен быть JSON, если пришел HTML - это Cloudflare Challenge
+            content_type = resp.headers.get("Content-Type", "")
+            if "wp-json" in url and ("text/html" in content_type or "<!DOCTYPE html>" in resp.text[:100]):
+                is_blocked = True
+                logging.warning(f"⚠️ Cloudflare Challenge detected (HTML instead of JSON) for {url}")
+
+            if is_blocked:
+                # Если это последняя попытка - падаем или возвращаем что есть
+                if attempt == MAX_RETRIES:
+                    logging.error("💀 Retries exhausted.")
+                    return resp
+                
+                # Иначе - РОТАЦИЯ
+                logging.warning(f"🔄 Rotating WARP and Session (Attempt {attempt}/{MAX_RETRIES})...")
+                rotate_warp()
+                logging.info("🛠 Resetting Scraper Session...")
+                SCRAPER = init_scraper()
+                time.sleep(3)
+                continue # Пробуем снова
+
+            # Если все ок (200 OK или просто ошибка 404, которая не блокировка)
+            return resp
+
+        except Exception as e:
+            logging.warning(f"⚠️ Request error ({e}). Rotating... (Attempt {attempt}/{MAX_RETRIES})")
+            rotate_warp()
+            SCRAPER = init_scraper()
+            time.sleep(3)
+    
+    return None
 
 # --- ПРЯМОЙ ПЕРЕВОДЧИК ---
+
 def translate_text(text: str, to_lang: str = "ru") -> str:
     if not text or len(text.strip()) < 2: return text
     url = "https://translate.googleapis.com/translate_a/single"
@@ -61,7 +136,8 @@ def translate_text(text: str, to_lang: str = "ru") -> str:
         pass
     return text
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ---
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+
 def sanitize_text(text: str) -> str:
     if not text: return ""
     text = html.unescape(text)
@@ -104,27 +180,50 @@ def save_image(url, folder):
     fn = hashlib.md5(url.encode()).hexdigest() + ".jpg"
     dest = folder / fn
     try:
-        r = SCRAPER.get(url, timeout=30)
-        r.raise_for_status()
-        dest.write_bytes(r.content)
-        return str(dest)
+        # Используем наш умный make_request, чтобы не падать на картинках
+        r = make_request("GET", url, timeout=30)
+        if r and r.status_code == 200:
+            dest.write_bytes(r.content)
+            return str(dest)
     except: return None
+    return None
 
-def make_request(method, url, **kwargs):
-    kwargs.setdefault("timeout", SCRAPER_TIMEOUT)
-    return SCRAPER.request(method, url, **kwargs)
+# --- ОСНОВНАЯ ЛОГИКА ---
 
 def fetch_cat_id(url, slug):
     r = make_request("GET", f"{url}/wp-json/wp/v2/categories?slug={slug}")
-    return r.json()[0]["id"]
+    if r and r.status_code == 200:
+        try:
+            data = r.json()
+            if data and isinstance(data, list):
+                return data[0]["id"]
+        except: pass
+    
+    logging.warning(f"Could not fetch category ID for '{slug}'. Using fallback if implemented.")
+    # Если нужно падать - раскомментируй:
+    # raise Exception(f"Failed to fetch category ID for {slug}")
+    return 19 # Fallback (как в прошлых версиях)
 
 def fetch_posts(url, cid, limit):
     all_posts, page = [], 1
     while len(all_posts) < limit:
+        logging.info(f"📄 Fetching page {page}...")
         r = make_request("GET", f"{url}/wp-json/wp/v2/posts", 
-                         params={"categories": cid, "per_page": 100, "page": page, "_embed": "true"})
-        data = r.json()
-        if not data: break
+                         params={"categories": cid, "per_page": 20, "page": page, "_embed": "true"})
+        
+        if not r or r.status_code != 200:
+            logging.warning("⚠️ Failed to fetch posts page.")
+            break
+            
+        try:
+            data = r.json()
+        except:
+            logging.error("❌ Failed to parse JSON posts.")
+            break
+            
+        if not data or not isinstance(data, list): 
+            break
+            
         all_posts.extend(data)
         page += 1
         if page > 5: break # Ограничение безопасности
@@ -169,7 +268,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     full_soup = None
     try:
         r = make_request("GET", link)
-        if r.status_code == 200:
+        if r and r.status_code == 200:
             full_soup = BeautifulSoup(r.text, "html.parser")
     except: pass
 
