@@ -122,18 +122,32 @@ def make_request(method, url, **kwargs):
 
 # --- ПРЯМОЙ ПЕРЕВОДЧИК ---
 
-def translate_text(text: str, to_lang: str = "ru") -> str:
-    if not text or len(text.strip()) < 2: return text
+def translate_text(text: str, to_lang: str = "ru", source_lang: str = "auto") -> str:
+    if not text or len(text.strip()) < 2: 
+        return text
+        
     url = "https://translate.googleapis.com/translate_a/single"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    params = {
+        "client": "gtx", 
+        "sl": source_lang, 
+        "tl": to_lang, 
+        "dt": "t", 
+        "q": text.strip()
+    }
+    
     try:
-        params = {"client": "gtx", "sl": "en", "tl": to_lang, "dt": "t", "q": text.strip()}
         r = requests.get(url, params=params, headers=headers, timeout=10)
         if r.status_code == 200:
             data = r.json()
             return "".join([item[0] for item in data[0] if item and item[0]])
-    except Exception:
-        pass
+        else:
+            print(f"Ошибка перевода: статус код {r.status_code}")
+    except Exception as e:
+        print(f"Исключение при запросе к переводчику: {e}")
+        
     return text
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
