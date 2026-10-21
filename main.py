@@ -122,11 +122,10 @@ def make_request(method, url, **kwargs):
 
 # --- ПРЯМОЙ ПЕРЕВОДЧИК ---
 
-def translate_text(text: str, to_lang: str = "ru", source_lang: str = "auto") -> str:
-    if not text or len(text.strip()) < 2: 
-        return text
-
-    # 1. Разбиваем текст на чанки, чтобы не превысить лимиты GET-запроса
+def translate_text(text: str, to_lang: str = "ru") -> str:
+    if not text: 
+        return ""
+        
     chunks = []
     current_chunk = ""
     for paragraph in text.split('\n'):
@@ -143,10 +142,9 @@ def translate_text(text: str, to_lang: str = "ru", source_lang: str = "auto") ->
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 
-    # Два резервных эндпоинта Google
     endpoints = [
-        ("https://translate.googleapis.com/translate_a/single", {"client": "gtx", "sl": source_lang, "tl": to_lang, "dt": "t"}),
-        ("https://clients5.google.com/translate_a/t", {"client": "dict-chrome-ex", "sl": source_lang, "tl": to_lang})
+        ("https://translate.googleapis.com/translate_a/single", {"client": "gtx", "sl": "en", "tl": to_lang, "dt": "t"}),
+        ("https://clients5.google.com/translate_a/t", {"client": "dict-chrome-ex", "sl": "en", "tl": to_lang})
     ]
 
     for chunk in chunks:
@@ -160,30 +158,40 @@ def translate_text(text: str, to_lang: str = "ru", source_lang: str = "auto") ->
             params = base_params.copy()
             params["q"] = chunk.strip()
 
+            # 1. Пробуем через SCRAPER (с вашим TLS-отпечатком и WARP)
             try:
-                # ВАЖНО: Используем ваш защищенный make_request с WARP и ротацией
-                r = make_request("GET", url, params=params, headers=headers, timeout=7)
-                
-                if r and r.status_code == 200:
+                r = SCRAPER.get(url, params=params, headers=headers, timeout=7)
+                if r.status_code == 200:
                     data = r.json()
                     if "clients5" in url:
                         translated_text = data[0] if isinstance(data[0], str) else data[0][0]
                     else:
                         translated_text = "".join([item[0] for item in data[0] if item and item[0]])
-                    
                     if translated_text: 
                         break
-            except Exception as e:
-                logging.debug(f"Ошибка эндпоинта {url}: {e}")
+            except Exception:
+                pass
+
+            # 2. Запасной прямой запрос (на случай сбоя SCRAPER)
+            try:
+                r = requests.get(url, params=params, headers=headers, timeout=7)
+                if r.status_code == 200:
+                    data = r.json()
+                    if "clients5" in url:
+                        translated_text = data[0] if isinstance(data[0], str) else data[0][0]
+                    else:
+                        translated_text = "".join([item[0] for item in data[0] if item and item[0]])
+                    if translated_text: 
+                        break
+            except Exception:
                 pass
 
         if translated_text:
             translated_parts.append(translated_text)
         else:
-            # Если оба эндпоинта не ответили — возвращаем хотя бы исходный кусок чанка
-            translated_parts.append(chunk.strip())
+            translated_parts.append(chunk)
 
-        time.sleep(0.3) # Небольшая пауза между чанками во избежание флуда
+        time.sleep(0.3)
 
     return "\n".join(translated_parts)
 
