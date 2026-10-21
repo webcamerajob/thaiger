@@ -297,7 +297,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
     # 1. Проверка хэша
     content_html = post["content"]["rendered"]
     current_hash = hashlib.sha256(content_html.encode()).hexdigest()
-    
+
     if meta_path.exists():
         try:
             existing_meta = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -308,17 +308,63 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
 
     # 2. Подготовка оригинального текста
     orig_title = BeautifulSoup(post["title"]["rendered"], "html.parser").get_text(strip=True)
-    
+
     if any(s in orig_title.lower() for s in stopwords):
         logging.info(f"🚫 Stopword found in ID={aid}. Skipping.")
         return None
 
     soup = BeautifulSoup(content_html, "html.parser")
-    for junk in soup.select(".related-posts, .ad-container, script, style, .jp-relatedposts"):
+
+    # Удаляем стандартные рекламные и мусорные блоки по классам
+    garbage_selectors = [
+        ".related-posts", ".ad-container", "script", "style", 
+        ".jp-relatedposts", ".relatednews", ".similar-news",
+        "#related-posts", ".yarpp-related", ".read-more-box",
+        ".sharedaddy", ".social-shares"
+    ]
+    for junk in soup.select(", ".join(garbage_selectors)):
         junk.decompose()
 
+    # Точные английские фразы-триггеры для блока "Похожие новости"
+    exact_bad_phrases = [
+        "related news", 
+        "related stories", 
+        "related articles",
+        "read also", 
+        "also read", 
+        "you may also like",
+        "recommended for you",
+        "don't miss",
+        "dont miss"
+    ]
+
+    # Ищем заголовок или плашку блока похожих новостей (с защитой от ложных срабатываний по длине и очисткой от эмодзи)
+    for tag in soup.find_all(["h2", "h3", "h4", "h5", "h6", "strong", "p", "div"]):
+        tag_text = tag.get_text(strip=True)
+        
+        # Заголовок блока "Related..." короткий. Если длиннее 40 символов — это текст статьи, пропускаем.
+        if len(tag_text) > 40:
+            continue
+
+        # Очищаем текст от иконок, эмодзи (например, 📰) и лишних символов, приводим к нижнему регистру
+        clean_tag_text = re.sub(r'[^\w\s]', '', tag_text)
+        clean_tag_text = re.sub(r'\s+', ' ', clean_tag_text).lower().strip()
+
+        if any(phrase == clean_tag_text or clean_tag_text.startswith(phrase) for phrase in exact_bad_phrases):
+            # Удаляем сам найденный заголовок и ВСЁ, что идет после него до конца статьи
+            for next_sibling in list(tag.find_next_siblings()):
+                next_sibling.decompose()
+            tag.decompose()
+            break
+
+    # Собираем оставшиеся параграфы
     paras = [p.get_text(strip=True) for p in soup.find_all("p") if p.get_text(strip=True)]
-    clean_paras = [p for p in paras if not any(x in p.lower() for x in ["read also", "also read", "related stories"])]
+    
+    # Финальная страховка для одиночных строк, содержащих триггеры
+    clean_paras = [
+        p for p in paras 
+        if not any(phrase in p.lower() for phrase in exact_bad_phrases)
+    ]
     raw_body = "\n\n".join(clean_paras)
 
     # 3. КАРТИНКИ (Улучшенный поиск Featured Image)
@@ -361,7 +407,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
         logging.info(f"🌐 Translating ID={aid} (Title + Body context)...")
         # Соединяем заголовок и тело через разделитель
         full_text_to_translate = f"{orig_title}\n|||\n{raw_body}"
-        
+
         # Разбиваем на чанки по 4500 символов (лимит Google ~5000)
         chunks = []
         while full_text_to_translate:
@@ -377,7 +423,7 @@ def parse_and_save(post: Dict[str, Any], translate_to: str, stopwords: List[str]
         translated_chunks = []
         for chunk in chunks:
             translated_chunks.append(translate_text(chunk, translate_to))
-        
+
         translated_full = "\n\n".join(translated_chunks)
 
         # Отделяем заголовок от тела
