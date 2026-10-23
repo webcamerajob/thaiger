@@ -27,30 +27,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --- ИСПРАВЛЕННЫЙ БЛОК: Ручная установка WARP (с циклом ожидания) ---
       - name: Install & Configure WARP Manually
         run: |
-          # 1. Добавляем ключи и репозиторий
           curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
           echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
           
-          # 2. Установка
-          sudo apt-get update
-          sudo apt-get install -y cloudflare-warp
+          sudo apt-get update -o Acquire::Languages=none -qq
+          sudo apt-get install -y --no-install-recommends cloudflare-warp
 
-          # 3. Регистрация и настройка (используем --accept-tos)
           sudo warp-cli --accept-tos registration new
           sudo warp-cli --accept-tos mode proxy
           sudo warp-cli --accept-tos proxy port 40000
-
-          # 4. Подключение
           sudo warp-cli --accept-tos connect
           
-          # 5. ЦИКЛ ОЖИДАНИЯ (вместо sleep 5)
-          # Ждем до 30 секунд, проверяя соединение каждые 3 секунды
           echo "⏳ Ожидание подключения WARP..."
           for i in {1..10}; do
-            if curl -x socks5://127.0.0.1:40000 -s https://www.cloudflare.com/cdn-cgi/trace | grep "warp=on"; then
+            if curl -x socks5://127.0.0.1:40000 -s https://www.cloudflare.com/cdn-cgi/trace | grep -q "warp=on"; then
               echo "✅ WARP успешно подключился! Порт 40000 активен."
               exit 0
             fi
@@ -58,27 +50,26 @@ jobs:
             sleep 3
           done
 
-          # Если за 30 секунд не подключился
           echo "❌ Не удалось подключиться к WARP за 30 секунд."
           sudo warp-cli --accept-tos status
-          # Убрали команду net-log, так как она вызывает ошибку в новых версиях
           exit 1
-      # ----------------------------------------
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'requirements-*.txt'
 
       - name: Install requirements
         run: |
-          if [ -f requirements-parser.txt ]; then pip install -r requirements-parser.txt; fi
-          if [ -f requirements-poster.txt ]; then pip install -r requirements-poster.txt; fi
+          pip install --upgrade pip
+          if [ -f requirements-parser.txt ]; then pip install --prefer-binary -r requirements-parser.txt; fi
+          if [ -f requirements-poster.txt ]; then pip install --prefer-binary -r requirements-poster.txt; fi
 
       - name: Run parser
         id: parse_step
         run: |
-          # main.py теперь должен использовать прокси socks5h://127.0.0.1:40000
           python3 main.py \
             --base-url "https://www.thethaiger.com" \
             --slug "national" \
